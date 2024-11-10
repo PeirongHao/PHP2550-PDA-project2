@@ -19,8 +19,9 @@ execute:
 #| label: setup
 #| include: false
 
-set.seed(123456)
+set.seed(1)
 library(tidyverse)
+library(dplyr)
 library(knitr)
 library(tidyr)      
 library(dplyr)       
@@ -28,28 +29,542 @@ library(kableExtra)
 library(readr)
 library(visdat)
 library(gtsummary)
+library(mice)
 #library(naniar)
 #library(patchwork)
 library(gridExtra)
 library(corrplot)
 library(olsrr)# model selection
+library(gtsummary)
 
 #read in data file
-df<-read.csv("project2.csv")
+df.proj2<-read.csv("project2.csv")
+#length(unique(df.proj2$id))#no duplicate obs
+df.proj2<-df.proj2[,-1]#remove id column
 ```
 
 ```{r}
-#missing data???
+# summary(df.proj2$abst)#convert to factor
+# summary(df.proj2$Var)#convert to factor
+# summary(df.proj2$BA)#convert to factor
+# summary(df.proj2$age_ps)
+# summary(df.proj2$sex_ps)#convert to factor, 1 or 2 refer to what???
+# summary(df.proj2$NHW)#convert to factor, 0 1???
+# summary(df.proj2$Black)#convert to factor, 0 1???
+# summary(df.proj2$Hisp)#convert to factor, 0 1???
+# summary(df.proj2$inc)#convert to factor, NA=3, 1-5
+# summary(df.proj2$edu)#convert to factor, 1-5
+# summary(df.proj2$ftcd_score)#NA=1
+# summary(df.proj2$ftcd.5.mins)#convert to factor
+# summary(df.proj2$bdi_score_w00)#0-51???
+# summary(df.proj2$cpd_ps)
+# summary(df.proj2$crv_total_pq1)#NA=18, drop???
+# summary(df.proj2$hedonsum_n_pq1)#???meaning
+# summary(df.proj2$hedonsum_y_pq1)#???meaning
+# summary(df.proj2$shaps_score_pq1)#NA=3
+# summary(df.proj2$otherdiag)#convert to factor
+# summary(df.proj2$antidepmed)#convert to factor
+# summary(df.proj2$mde_curr)#convert to factor
+# summary(df.proj2$NMR)#NA=21
+# summary(df.proj2$Only.Menthol)#convert to factor, NA=2
+# summary(df.proj2$readiness)#NA=17
 
+df.proj2.revise <- df.proj2 %>% mutate(
+  `Smoking Abstinence` = abst,
+  Varenicline = Var, 
+  `Behavioral Activation` = BA, 
+  
+  Group = case_when(
+          Var == 0 & BA == 0 ~ "ST + placebo",
+          Var == 0 & BA == 1 ~ "BASC + placebo",
+          Var == 1 & BA == 0 ~ "ST + varenicline",
+          Var == 1 & BA == 1 ~ "BASC + varenicline"),
+  Age = age_ps,
+  Sex = case_when(
+          sex_ps == 2 ~ "Female",
+          sex_ps == 1 ~ "Male"),
+  Race = case_when(
+          NHW == 1 & Black == 0 ~ "White",
+          NHW == 0 & Black == 1 ~ "Black/African American",
+          .default = "Others"),
+  Hispanic = case_when(
+          Hisp == 1 ~ "True",
+          Hisp == 0 ~ "False"),
+  Education = case_when(
+          edu == 1 ~ "Grade school",
+          edu == 2 ~ "Some high school",
+          edu == 3 ~ "High school graduate or GED",
+          edu == 4 ~ "Some college/technical school",
+          edu == 5 ~ "College graduate"),
+  `Income per year` = case_when(
+          edu == 1 ~ "Less than $20,000",
+          edu == 2 ~ "$20,000 - 35,000",
+          edu == 3 ~ "$35,001 - 50,000",
+          edu == 4 ~ "$50,001 - 75,000",
+          edu == 5 ~ "More than $75,000"),
+  `Cigarettes smoked per day` = cpd_ps,
+  `Cigarettes reward value` = crv_total_pq1,
+  FTCD = ftcd_score,
+  `Readiness to quit` = readiness,
+  `Time to first cigarette after waking` = case_when(
+          ftcd.5.mins == 1 ~ "5 minutes or less",
+          ftcd.5.mins == 0 ~ "More than 5 minutes"),
+  `Cigarette type` = case_when(
+          Only.Menthol == 1 ~ "Menthol cigarettes only",
+          Only.Menthol == 0 ~ "Regular cigareettes (or both)"),
+  `Major depressive disorder status` = case_when(
+          mde_curr == 1 ~ "Current MDD only/Current and past MDD",
+          mde_curr == 0 ~ "Past MDD only"),
+  `Antidepressant medication` = case_when(
+          antidepmed == 1 ~ "True",
+          antidepmed == 0 ~ "False"),
+  `Other psychiatric diagnosis` = case_when(
+          otherdiag == 1 ~ "True",
+          otherdiag == 0 ~ "False"),
+  Varenicline = case_when(
+          Varenicline == 1 ~ "True",
+          Varenicline == 0 ~ "False"),
+  `Behavioral Activation` = case_when(
+          otherdiag == 1 ~ "True",
+          otherdiag == 0 ~ "False"),
+  `Depressive symptoms (BDI-II)` = bdi_score_w00,
+  `Pleasurable Events – substitute reinforcers` = hedonsum_n_pq1,
+  `Pleasurable Events – complementary reinforcers` = hedonsum_y_pq1,
+  Anhedonia = shaps_score_pq1,
+  `Nicotine Metabolism Ratio` = NMR,
+  
+  across(c(`Smoking Abstinence`, Varenicline, `Behavioral Activation`, Group, Sex, Race, 
+           Hispanic, `Income per year`, Education, `Time to first cigarette after waking`,
+          `Other psychiatric diagnosis`, `Antidepressant medication`, 
+          `Major depressive disorder status`, `Cigarette type`,`Readiness to quit`), as.factor)) %>% 
+  dplyr::select(`Smoking Abstinence`, Varenicline, `Behavioral Activation`, Group,
+                Age, Sex, Race, Hispanic, Education, `Income per year`, `Cigarettes smoked per day`,
+                `Cigarettes reward value`, FTCD, `Readiness to quit`, `Time to first cigarette after waking`,
+                `Cigarette type`, `Major depressive disorder status`, `Antidepressant medication`,
+                `Other psychiatric diagnosis`, `Depressive symptoms (BDI-II)`, 
+                `Pleasurable Events – substitute reinforcers`, 
+                `Pleasurable Events – complementary reinforcers`,
+                Anhedonia, `Nicotine Metabolism Ratio`)
+
+
+tbl.summary<-df.proj2.revise %>% dplyr::select(-c(`Smoking Abstinence`, Varenicline, `Behavioral Activation`))%>%
+  tbl_summary(by = Group, 
+              type = list(where(is.numeric) ~ "continuous"),
+              statistic = list(all_continuous() ~ "{mean} ({sd})"),
+              missing="no") %>% add_p() %>%
+  bold_labels() %>% 
+  italicize_levels() %>% 
+  bold_p(t = 0.05) %>%
+  as_kable_extra(booktabs = TRUE)
+tbl.summary
+```
+
+```{r}
+# Visualize missing data pattern
+
+df.proj2 <- df.proj2 %>% mutate(
+  race = case_when(
+          NHW == 1 & Black == 0 ~ 1,
+          NHW == 0 & Black == 1 ~ 2,
+          .default = 0))%>% 
+  select(-c(NHW, Black))
+  
+df.proj2%>% abbreviate_vars() %>% vis_miss() + theme(text = element_text(size = 7)) + ggtitle("Missing Data")
+# Calculate the number of missing values for each column
+
+miss_tbl<-df.proj2.revise %>% filter(if_any(everything(), is.na))%>%
+  group_by(Group)%>%
+  summarise(n = n(),.groups = 'drop')%>%
+  rename(`Number of missing observations` = n)%>%
+  kable(booktabs = TRUE, digits = 2)
+miss_tbl
+#MCAR???
+
+missing_counts <- colSums(is.na(df.proj2))
+missing_counts
+
+
+#missing data???
+#str(df.proj2)#int, num, convert some to factors???
+md.pattern(df.proj2, plot = TRUE, rotate.names = TRUE)
+
+#check MAR
+missing_matrix <- is.na(df.proj2)
+missing_corrs <- cor(df.proj2, use = "pairwise.complete.obs")
+corrplot(missing_corrs, method="number", number.cex = 0.3)
+
+#ITT findings are based on the full sample randomized at baseline and employ a missing-not-at-random (MNAR) assumption that missing = smoking
+
+#MAR (Missing At Random): MICE is designed for MAR data because it imputes missing values based on observed data in other variables, which aligns with the MAR assumption that missingness can be explained by other observed information.
+```
+
+```{r}
+#single variable eda
+
+#do not need to do any variable transformation, remove this chunk!
+
+#quantitative variables
+par(mfrow=c(1,2))
+hist((df.proj2$age_ps))#left skew
+hist((df.proj2$age_ps)^2)#left skew
+
+hist((df.proj2$ftcd_score))#slight left skew
+
+par(mfrow=c(1,2))
+hist((df.proj2$bdi_score_w00))#right skew
+hist(sqrt(df.proj2$bdi_score_w00))#right skew
+
+par(mfrow=c(1,2))
+hist((df.proj2$cpd_ps))#right skew
+hist(log(df.proj2$cpd_ps))#right skew
+
+hist((df.proj2$crv_total_pq1))#slight right skew
+
+par(mfrow=c(1,2))
+hist((df.proj2$hedonsum_n_pq1))#right skew
+hist(sqrt(df.proj2$hedonsum_n_pq1))#right skew
+
+par(mfrow=c(1,2))
+hist((df.proj2$hedonsum_y_pq1))#right skew
+hist(sqrt(df.proj2$hedonsum_y_pq1))#right skew
+
+par(mfrow=c(1,2))
+hist((df.proj2$shaps_score_pq1))
+hist(log(df.proj2$shaps_score_pq1))#right skew, maybe add indicator later
+
+par(mfrow=c(1,2))
+hist((df.proj2$NMR))
+hist(log(df.proj2$NMR))#right skew->slight left skew
+```
+
+```{r}
+#multivariable eda, C+Q
+
+# boxplot(df.proj2$age_ps~df.proj2$abst,ylab="total experience in years",xlab="job change decision",main="Boxplots of experience by job change decision",names=c("Not look for job change","Look for a job change"),col=c("thistle1","thistle3"))
+# group.means<-tapply(df.proj2$age_ps,df.proj2$abst,mean)
+# points(1:2,group.means)
+
+par(mfrow=c(1,2))
+boxplot(df.proj2$age_ps~df.proj2$abst)
+boxplot(df.proj2$ftcd_score~df.proj2$abst)
+
+par(mfrow=c(1,2))
+boxplot(df.proj2$bdi_score_w00~df.proj2$abst)
+boxplot(df.proj2$cpd_ps~df.proj2$abst)
+
+par(mfrow=c(1,2))
+boxplot(df.proj2$crv_total_pq1~df.proj2$abst)
+boxplot(df.proj2$hedonsum_n_pq1~df.proj2$abst)
+
+par(mfrow=c(1,2))
+boxplot(df.proj2$hedonsum_y_pq1~df.proj2$abst)
+boxplot(df.proj2$shaps_score_pq1~df.proj2$abst) #plot this??? b/c other ranges of boxplots are similar
+boxplot(df.proj2$NMR~df.proj2$abst)
+```
+
+```{r}
+non_factor_df <- df.proj2[, sapply(df.proj2, function(col) !is.factor(col))]
+non_factor_df <- non_factor_df[,-1]#remove id column
+corrplot.mixed(cor(non_factor_df, use = "complete.obs"), tl.cex = 0.2, number.cex = 0.3)
+#cor(non_factor_df, use = "complete.obs")
+#ftcd_score and ftcd.5.mins have cor=0.6254919659
+#mde_curr and bdi_score_w00 have cor=0.57701349
+#ftcd_score and cpd_ps have cor=0.516755685
+```
+
+```{r}
+#KEEP THIS
+df.proj2.revise %>% 
+  dplyr::select(-c(Group))%>%
+  tbl_summary(by = `Smoking Abstinence`, 
+              type = list(where(is.numeric) ~ "continuous"),
+              statistic = list(all_continuous() ~ "{mean} ({sd})"),
+              missing="no") %>% 
+  bold_labels() %>% 
+  italicize_levels() %>% 
+  add_p()%>% 
+  modify_spanning_header(all_stat_cols() ~ "**Smoking Abstinence**") %>% 
+  as_kable_extra(booktabs = TRUE)
+```
+
+```{r}
+#categorical variables
+prop.table(table(df.proj2$abst))#convert to factor, outcome of interest: 79% of 0s, 21% of 1s, so unbalanced data
+
+# summary(df.proj2$Var)#convert to factor
+tab<-prop.table(table(df.proj2$Var, df.proj2$abst),1)
+barplot(t(tab))
+
+# summary(df.proj2$BA)#convert to factor
+prop.table(table(df.proj2$BA, df.proj2$abst),1)
+
+# summary(df.proj2$sex_ps)#convert to factor, 1 or 2 refer to what???
+prop.table(table(df.proj2$sex_ps, df.proj2$abst),1)
+
+# summary(df.proj2$race)#convert to factor, 0 1???
+prop.table(table(df.proj2$race, df.proj2$abst),1)
+
+# summary(df.proj2$Hisp)#convert to factor, 0 1???
+prop.table(table(df.proj2$Hisp, df.proj2$abst),1)
+
+# summary(df.proj2$inc)#convert to factor, NA=3, 1-5
+prop.table(table(df.proj2$inc, df.proj2$abst),1)
+
+# summary(df.proj2$edu)#convert to factor, 1-5, plot this???
+prop.table(table(df.proj2$edu, df.proj2$abst),1)
+
+# summary(df.proj2$ftcd.5.mins)#convert to factor
+prop.table(table(df.proj2$ftcd.5.mins, df.proj2$abst),1)
+
+# summary(df.proj2$otherdiag)#convert to factor
+prop.table(table(df.proj2$otherdiag, df.proj2$abst),1)
+
+# summary(df.proj2$antidepmed)#convert to factor
+#prop.table(table(df.proj2$antidepmed))#73% no, 27% yes
+#prop.tab<-prop.table(table(df.proj2$antidepmed, df.proj2$abst),1)
+#prop.tab
+#barplot(t(prop.tab),xlab="Antidepressant Medication",main="Stacked barplot of smoking abstinence",legend.text = c("Not taking it","Taking medication"),col=c("lightskyblue1","lightblue3"))
+
+# summary(df.proj2$mde_curr)#convert to factor
+prop.table(table(df.proj2$mde_curr, df.proj2$abst),1)
+
+# summary(df.proj2$Only.Menthol)#convert to factor, NA=2
+prop.table(table(df.proj2$Only.Menthol, df.proj2$abst),1)
+
+#barplot(df.proj2$readiness)#NA=17
+prop.table(table(df.proj2$readiness, df.proj2$abst),1)#plot this or explain this???
+
+prop.table(table(df.proj2.revise$Group, df.proj2.revise$`Smoking Abstinence`),1)
+
+#KEEP THIS
+prop_table<-prop.table(table(df.proj2.revise$Group, df.proj2.revise$`Smoking Abstinence`),1)
+prop_df <- as.data.frame(prop_table)
+colnames(prop_df) <- c("Intervention", "Outcome", "Proportion")
+ggplot(prop_df, aes(x = Group, y = Proportion, fill = Outcome)) +
+  geom_bar(stat = "identity", position = "stack") +
+  labs(y = "Proportion", x = "Intervention", fill = "Smoking Abstinence") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+#pre-select interaction terms???
+```
+
+```{r}
+#sig different between four trt groups:
+#Antidepressant medication: C
+
+#sig different between two outcome groups:
+#Nicotine Metabolism Ratio(NMR): Q
+
+#FTCD: Q
+
+#Race: C
+
+#Varenicline: C
+
+
+# ggplot(df.proj2, aes(x=NMR, y=ftcd_score, fill=factor(race))) +
+#   geom_violin() 
+# 
+# df.proj2.revise %>% ggplot(aes(y=`Nicotine Metabolism Ratio`, x=FTCD, color=`Antidepressant medication`)) +
+#   geom_smooth()+
+#   theme_minimal()+
+#   facet_grid(.~Race)#+
+#   #theme(legend.position="none")+
+#  # labs(x = "Wind speed in km/hr", y = "Completion Time in hours")
+# 
+# 
+# ggplot(df.proj2.revise, 
+#        aes(x = Race, y = `Nicotine Metabolism Ratio`, fill = Race)) +
+#   geom_boxplot() #+
+#   #labs(x = "Group", y = "Value") +
+#   #theme_minimal()
+
+ggplot(df.proj2.revise, 
+       aes(x = Race, y = `Nicotine Metabolism Ratio`,fill = Race)) +
+  geom_violin() +
+  theme_minimal()+
+  facet_grid(.~`Antidepressant medication`)+
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+ggplot(df.proj2.revise, 
+       aes(x = Race, y = FTCD, fill = Race)) +
+  geom_violin() +
+  theme_minimal()+
+  facet_grid(.~`Antidepressant medication`)+
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+
+ggplot(df.proj2.revise, aes(y = `Nicotine Metabolism Ratio`, x = FTCD, 
+                 color = Race, shape = `Antidepressant medication`)) +
+  geom_point(size = 3) +
+  #labs(x = "Var1", y = "Var2", color = "Category 1", shape = "Category 2") +
+  theme_minimal()
+
+
+#INCLUDE OR NOT???
+library(dplyr)
+library(gt)
+df.proj2.revise %>%
+  group_by(Race, `Antidepressant medication`) %>%
+  summarize(
+    var1_mean = mean(`Nicotine Metabolism Ratio`,na.rm=T), var1_sd = sd(`Nicotine Metabolism Ratio`,na.rm=T),
+    var2_mean = mean(FTCD,na.rm=T), var2_sd = sd(FTCD,na.rm=T)
+  ) %>%
+  gt() %>%
+  tab_header(title = "Summary Statistics by Categories") %>%
+  fmt_number(columns = starts_with("var"), decimals = 2)
+```
+
+```{r}
+imp <- mice(df.proj2, m = 5, method = "pmm", seed = 1)
+df.imp <- complete(imp, action="long")
+
+library(l0learn)
+
+#imputation lives inside bootstrap, no bootstrap
+#mice imputation??? and then test train split
+
+numeric_vars <- c("age_ps", "ftcd_score", "bdi_score_w00", "cpd_ps",
+                          "crv_total_pq1", "hedonsum_n_pq1","hedonsum_y_pq1",
+                          "shaps_score_pq1","NMR")#9
+categorical_vars <- c("sex_ps", "race", "Hisp", "inc", "edu", "ftcd.5.mins", 
+                      "otherdiag", "antidepmed", "mde_curr", "Only.Menthol",
+                        "readiness")#11
+
+interaction_formula <- as.formula(
+  paste("~", paste(outer(numeric_vars, categorical_vars, 
+                         function(x, y) paste(x, y, sep = "*")), collapse = " + "))
+)
+
+interaction_matrix <- model.matrix(interaction_formula, df.imp)[,-c(1:21)]#first 21 cols are main effects
+interaction_df <- as.data.frame(interaction_matrix)
+df.imp <- cbind(df.imp, interaction_df)
+df.imp$Var_BA <- data_with_interactions$Var * data_with_interactions$BA
+
+ncol=123#main effect and all possible interaction
+
+train.all <- data.frame(matrix(ncol = ncol, nrow = 0))
+colnames(train.all) <- colnames(df.imp)[-c(1:2)]
+
+test.all <- data.frame(matrix(ncol = ncol, nrow = 0))
+colnames(test.all) <- colnames(df.imp)[-c(1:2)]
+
+coef.all <- matrix(ncol = 5, nrow = 29) #5 imputation, 29 coeffs
+
+for(m in 1:5){
+  data.subset <- df.imp[df.imp$.imp == m,-c(1,2)]
+  
+  #Var == 0 & BA == 0 
+  #Var == 0 & BA == 1 
+  #Var == 1 & BA == 0 
+  #Var == 1 & BA == 1 
+  trt1 <- data.subset[data.subset$Var == 0 & data.subset$BA == 0,]
+  trt2 <- data.subset[data.subset$Var == 0 & data.subset$BA == 1,]
+  trt3 <- data.subset[data.subset$Var == 1 & data.subset$BA == 0,]
+  trt4 <- data.subset[data.subset$Var == 1 & data.subset$BA == 1,]
+  
+  trt.list <- list(trt1, trt2, trt3, trt4)
+  
+  #test train split, stratify by treatment
+  
+  train.final <- data.frame(matrix(ncol = ncol, nrow = 0))
+  colnames(train.final) <- colnames(data.subset)
+  
+  test.final <- data.frame(matrix(ncol = ncol, nrow = 0))
+  colnames(test.final) <- colnames(data.subset)
+
+  for(df in trt.list){
+    idx <- sample(c(TRUE, FALSE), nrow(df), replace=TRUE, prob=c(0.8,0.2))
+    train  <- df[idx, ]
+    test   <- df[!idx, ]
+    
+    train.final <- rbind(train.final, train)
+    test.final <- rbind(test.final, test)
+  }
+  
+  train.all <- rbind(train.all, train.final)
+  test.all <- rbind(test.all, test.final)
+  
+  x1 <- model.matrix(abst ~ ., data=train.final)[, -1]
+  y1 <- train.final$abst
+
+
+  coef.all[,m]<-as.vector(coef.iter)[-1]#remove intercept term
+  
+}
+#model = avg/pool coef
+coef.avg <- rowMeans(coef.all,na.rm=T)
+```
+
+```{r}
+#| fig-cap: Discrimination plot
+#| fig-height: 3
+
+#discrimination
+
+#training
+scores <- x1 %*% mod_lasso_scale
+mod1<-glm(y1~scores, family= binomial())
+pred1 <- predict(mod1, tb_south_africa, type = "response")#convert to probabilities
+
+roc1 <- roc(predictor = pred1, 
+               response = as.factor(mod1$y), 
+               levels = c(0,1), direction = "<")
+plot(roc1, col = "blue", print.auc = TRUE)#print.thres = TRUE
+
+#testing
+x2 <- model.matrix(tb ~ ., tb_uganda)[, -1]
+y2 <- tb_uganda$tb
+scores <- x2 %*% mod_lasso_scale
+mod2<-glm(y2~scores, family= binomial())
+pred2 <- predict(mod2, tb_uganda, type = "response")
+
+roc2 <- roc(predictor = pred2, 
+               response = as.factor(mod2$y), 
+               levels = c(0,1), direction = "<")
+plot(roc2, col = "green", print.auc = TRUE, print.auc.y = .4, add=TRUE)#print.thres = TRUE
+
+legend(1.4, 0.9, legend=c("Derivation data", "Validation data"),
+       col=c("blue", "green"),lty=1, cex=0.8)
+```
+
+
+```{r}
+df.mice <- mice(df.proj2, meth='pmm', maxit = 10, seed=500, print=F)
+#same number of observations per treatment
+
+#mice instruction: https://www.youtube.com/watch?v=ghmU7nodhSM
+# reg.fit<-with(df.mice,lm(y~x1+x2))
+# pool.fit<-pool(reg.fit)
+# summary(pool.fit)
+# pool.r2<-pool.r.squared(reg.fit)
+```
+
+
+```{r}
 #EDA
+
+#select variables???
+
+#three way interaction??? BASC*varenicline*site or two way: BASC*varenicline
+
+#unbalanced data, bootstrap or cv??? inverse probability weighting (causal lecture4)???
 ```
 
 # Introduction
 
+The goal of this project will be to use the data from this trial to examine baseline variables as potential moderators of the effects of behavioral treatment on end-of-treatment (EOT) abstinence and evaluate baseline variables as predictors of abstinence, controlling for behavioral treatment and pharmacotherapy.
+
+# Statistical analysis
+
+```{r}
+#check logit assumptions after model fit
+```
 
 
-# Conclusion and Limitations
+# Results
 
+# Discussion
 
 \newpage
 
