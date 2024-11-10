@@ -416,10 +416,10 @@ df.proj2.revise %>%
 ```
 
 ```{r}
-imp <- mice(df.proj2, m = 5, method = "pmm", seed = 1)
+imp <- mice(df.proj2, meth='pmm', maxit = 10, seed=500, print=F)
 df.imp <- complete(imp, action="long")
 
-library(l0learn)
+library(L0Learn)
 
 #imputation lives inside bootstrap, no bootstrap
 #mice imputation??? and then test train split
@@ -439,9 +439,9 @@ interaction_formula <- as.formula(
 interaction_matrix <- model.matrix(interaction_formula, df.imp)[,-c(1:21)]#first 21 cols are main effects
 interaction_df <- as.data.frame(interaction_matrix)
 df.imp <- cbind(df.imp, interaction_df)
-df.imp$Var_BA <- data_with_interactions$Var * data_with_interactions$BA
+df.imp$Var_BA <- df.imp$Var * df.imp$BA
 
-ncol=123#main effect and all possible interaction
+ncol = ncol(df.imp)-2 #main effect and all possible interaction
 
 train.all <- data.frame(matrix(ncol = ncol, nrow = 0))
 colnames(train.all) <- colnames(df.imp)[-c(1:2)]
@@ -449,7 +449,7 @@ colnames(train.all) <- colnames(df.imp)[-c(1:2)]
 test.all <- data.frame(matrix(ncol = ncol, nrow = 0))
 colnames(test.all) <- colnames(df.imp)[-c(1:2)]
 
-coef.all <- matrix(ncol = 5, nrow = 29) #5 imputation, 29 coeffs
+coef.all <- matrix(ncol = 5, nrow = ncol) #5 imputation
 
 for(m in 1:5){
   data.subset <- df.imp[df.imp$.imp == m,-c(1,2)]
@@ -480,7 +480,7 @@ for(m in 1:5){
     
     train.final <- rbind(train.final, train)
     test.final <- rbind(test.final, test)
-  }
+    }
   
   train.all <- rbind(train.all, train.final)
   test.all <- rbind(test.all, test.final)
@@ -488,24 +488,35 @@ for(m in 1:5){
   x1 <- model.matrix(abst ~ ., data=train.final)[, -1]
   y1 <- train.final$abst
 
-
-  coef.all[,m]<-as.vector(coef.iter)[-1]#remove intercept term
+  cvfit = L0Learn.cvfit(x1, y1, nFolds=5, seed=1, loss = "Logistic", penalty="L0L1", nGamma=5, gammaMin=0.0001, maxSuppSize=8)
+  optimalGammaIndex = which.min(lapply(cvfit$cvMeans, min))
+  optimalLambdaIndex = which.min(cvfit$cvMeans[[optimalGammaIndex]])
+  optimalLambda = cvfit$fit$lambda[[optimalGammaIndex]][optimalLambdaIndex]
+  coef.iter <- coef(cvfit, lambda=optimalLambda, gamma=cvfit$fit$gamma[optimalGammaIndex])
+  
+  coef.all[,m]<-as.vector(coef.iter)
   
 }
 #model = avg/pool coef
-coef.avg <- rowMeans(coef.all,na.rm=T)
+coef.avg <- rowMeans(coef.all, na.rm=T)
 ```
 
+
 ```{r}
+library(pROC)
 #| fig-cap: Discrimination plot
 #| fig-height: 3
 
 #discrimination
 
 #training
-scores <- x1 %*% mod_lasso_scale
-mod1<-glm(y1~scores, family= binomial())
-pred1 <- predict(mod1, tb_south_africa, type = "response")#convert to probabilities
+
+x.train <- model.matrix(abst ~ ., data=train.all)[, -1]
+y.train <- train.all$abst
+  
+scores <- coef.avg[1] + x.train %*% coef.avg[-1]
+mod1<-glm(y.train~scores, family= binomial())
+pred1 <- predict(mod1, train.all, type = "response")#convert to probabilities
 
 roc1 <- roc(predictor = pred1, 
                response = as.factor(mod1$y), 
@@ -513,11 +524,11 @@ roc1 <- roc(predictor = pred1,
 plot(roc1, col = "blue", print.auc = TRUE)#print.thres = TRUE
 
 #testing
-x2 <- model.matrix(tb ~ ., tb_uganda)[, -1]
-y2 <- tb_uganda$tb
-scores <- x2 %*% mod_lasso_scale
+x2 <- model.matrix(abst ~ ., data=test.all)[, -1]
+y2 <- test.all$abst
+scores <- coef.avg[1] + x2 %*% coef.avg[-1]
 mod2<-glm(y2~scores, family= binomial())
-pred2 <- predict(mod2, tb_uganda, type = "response")
+pred2 <- predict(mod2, test.all, type = "response")
 
 roc2 <- roc(predictor = pred2, 
                response = as.factor(mod2$y), 
@@ -527,28 +538,82 @@ plot(roc2, col = "green", print.auc = TRUE, print.auc.y = .4, add=TRUE)#print.th
 legend(1.4, 0.9, legend=c("Derivation data", "Validation data"),
        col=c("blue", "green"),lty=1, cex=0.8)
 ```
-
-
 ```{r}
-df.mice <- mice(df.proj2, meth='pmm', maxit = 10, seed=500, print=F)
-#same number of observations per treatment
+#| tbl-cap: Discrimination table
+pred_ys <- ifelse(pred1 > 0.475, 1, 0)
+tab_outcome <- table(mod1$y, pred_ys)
 
-#mice instruction: https://www.youtube.com/watch?v=ghmU7nodhSM
-# reg.fit<-with(df.mice,lm(y~x1+x2))
-# pool.fit<-pool(reg.fit)
-# summary(pool.fit)
-# pool.r2<-pool.r.squared(reg.fit)
+sens1 <- tab_outcome[2, 2]/(tab_outcome[2, 1]+tab_outcome[2, 2])
+spec1 <- tab_outcome[1, 1]/(tab_outcome[1, 1]+tab_outcome[1, 2])
+ppv1 <- tab_outcome[2, 2]/(tab_outcome[1, 2]+tab_outcome[2, 2])
+npv1 <- tab_outcome[1, 1]/(tab_outcome[1, 1]+tab_outcome[2, 1])
+acc1 <- (tab_outcome[1, 1]+tab_outcome[2, 2])/sum(tab_outcome)
+
+pred_ys <- ifelse(pred2 > 0.231, 1, 0)
+tab_outcome <- table(mod2$y, pred_ys)
+
+sens2 <- tab_outcome[2, 2]/(tab_outcome[2, 1]+tab_outcome[2, 2])
+spec2 <- tab_outcome[1, 1]/(tab_outcome[1, 1]+tab_outcome[1, 2])
+ppv2 <- tab_outcome[2, 2]/(tab_outcome[1, 2]+tab_outcome[2, 2])
+npv2 <- tab_outcome[1, 1]/(tab_outcome[1, 1]+tab_outcome[2, 1])
+acc2 <- (tab_outcome[1, 1]+tab_outcome[2, 2])/sum(tab_outcome)
+
+
+data.frame(Measures = c("Sens", "Spec", "PPV", "NPV", "Acc"),
+          Derivation = round(c(sens1, spec1, ppv1, npv1, acc1),3),
+          Validation = round(c(sens2, spec2, ppv2, npv2, acc2),3)) %>%
+  kable()
 ```
 
+```{r}
+#calibration plot1
+num_cuts <- 10
+calib_data <-  data.frame(prob = pred1,
+                          bin = cut(pred1, breaks = num_cuts),
+                          class = mod1$y)
+calib_data <- calib_data %>% 
+             group_by(bin) %>% 
+             summarize(observed = sum(class)/n(), 
+                       expected = sum(prob)/n(), 
+                       se = sqrt(observed * (1-observed) / n()))
+
+p1<-ggplot(calib_data) + 
+  geom_abline(intercept = 0, slope = 1, color = "red") + 
+  geom_errorbar(aes(x = expected, ymin = observed - 1.96 * se, 
+                    ymax = observed + 1.96 * se), 
+                colour="black", width=.01)+
+  geom_point(aes(x = expected, y = observed)) +
+  labs(x = "Expected Proportion", y = "Observed Proportion") +
+  theme_minimal()+
+  ggtitle("Derivation")
+```
 
 ```{r}
-#EDA
+#| fig-cap: Calibration plot
+#| fig-height: 3
 
-#select variables???
+#calibration plot2
+num_cuts <- 10
+calib_data <-  data.frame(prob = pred2,
+                          bin = cut(pred2, breaks = num_cuts),
+                          class = mod2$y)
+calib_data <- calib_data %>% 
+             group_by(bin) %>% 
+             summarize(observed = sum(class)/n(), 
+                       expected = sum(prob)/n(), 
+                       se = sqrt(observed * (1-observed) / n()))
 
-#three way interaction??? BASC*varenicline*site or two way: BASC*varenicline
+p2<-ggplot(calib_data) + 
+  geom_abline(intercept = 0, slope = 1, color = "red") + 
+  geom_errorbar(aes(x = expected, ymin = observed - 1.96 * se, 
+                    ymax = observed + 1.96 * se), 
+                colour="black", width=.01)+
+  geom_point(aes(x = expected, y = observed)) +
+  labs(x = "Expected Proportion", y = "Observed Proportion") +
+  theme_minimal()+
+  ggtitle("Validation")
 
-#unbalanced data, bootstrap or cv??? inverse probability weighting (causal lecture4)???
+grid.arrange(p1, p2, nrow = 1)
 ```
 
 # Introduction
