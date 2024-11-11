@@ -37,24 +37,21 @@ library(gtsummary)
 df.proj2<-read.csv("project2.csv")
 #length(unique(df.proj2$id))#no duplicate obs
 df.proj2<-df.proj2[,-1]#remove id column
+#str(df.proj2)#int, num, convert some to factors
 ```
-
-
 
 ```{r}
 #| tab-cap: Participant characteristics by treatment group
 
+#rename variables and their categories
 df.proj2.revise <- df.proj2 %>% mutate(
   `Smoking Abstinence` = abst,
-  Varenicline = case_when(
-      Var == 1 ~ "True",
-      Var == 0 ~ "False"
-    ),
   `Behavioral Activation` = case_when(
       BA == 1 ~ "True",
-      BA == 0 ~ "False"
-    ),
-  
+      BA == 0 ~ "False"),
+  Varenicline = case_when(
+      Var == 1 ~ "True",
+      Var == 0 ~ "False"),
   Group = case_when(
           Var == 0 & BA == 0 ~ "ST + placebo",
           Var == 0 & BA == 1 ~ "BASC + placebo",
@@ -102,19 +99,12 @@ df.proj2.revise <- df.proj2 %>% mutate(
   `Other psychiatric diagnosis` = case_when(
           otherdiag == 1 ~ "True",
           otherdiag == 0 ~ "False"),
-  Varenicline = case_when(
-          Varenicline == 1 ~ "True",
-          Varenicline == 0 ~ "False"),
-  `Behavioral Activation` = case_when(
-          otherdiag == 1 ~ "True",
-          otherdiag == 0 ~ "False"),
   `Depressive symptoms (BDI-II)` = bdi_score_w00,
   `Pleasurable Events – substitute reinforcers` = hedonsum_n_pq1,
   `Pleasurable Events – complementary reinforcers` = hedonsum_y_pq1,
   Anhedonia = shaps_score_pq1,
   `Nicotine Metabolism Ratio` = NMR,
-  
-  across(c(`Smoking Abstinence`, Varenicline, `Behavioral Activation`, Group, Sex, Race, 
+  across(c(`Smoking Abstinence`, `Behavioral Activation`, Varenicline, Group, Sex, Race, 
            Hispanic, `Income per year`, Education, `Time to first cigarette after waking`,
           `Other psychiatric diagnosis`, `Antidepressant medication`, 
           `Major depressive disorder status`, `Cigarette type`,`Readiness to quit`), as.factor)) %>% 
@@ -127,7 +117,7 @@ df.proj2.revise <- df.proj2 %>% mutate(
                 `Pleasurable Events – complementary reinforcers`,
                 Anhedonia, `Nicotine Metabolism Ratio`)
 
-
+#summary table
 tbl.summary<-df.proj2.revise %>% 
   dplyr::select(-c(`Smoking Abstinence`, Varenicline, `Behavioral Activation`))%>%
   tbl_summary(by = Group, 
@@ -141,51 +131,64 @@ tbl.summary<-df.proj2.revise %>%
 tbl.summary
 ```
 
+There were 300 observations with unique ids (no duplicated observation) with 24 variables. Except for one variable being id, the others are variables of interst including the outcome, treatments, and baseline covariates. Among all basecline characteristics, only `Antidepressant medication` has a p-values < $\alpha$ = 0.05, meaning it is significantly different across four treatment groups. According to the paper assumption, full sample was randomized at baseline and employ a missing-not-at-random (MNAR) assumption, i.e., all missing outcomes were considered as smoking. 
+
 ```{r}
-
-
+#modify race variable
 df.proj2 <- df.proj2 %>% mutate(
   race = case_when(
           NHW == 1 & Black == 0 ~ 1,
           NHW == 0 & Black == 1 ~ 2,
           .default = 0))%>% 
   select(-c(NHW, Black))
-  
+
 # Visualize missing data pattern
 
-df.proj2%>% abbreviate_vars() %>% vis_miss() + theme(text = element_text(size = 7)) + ggtitle("Missing Data")
-# Calculate the number of missing values for each column
+#df.proj2%>% abbreviate_vars() %>% vis_miss() + theme(text = element_text(size = 7)) + ggtitle("Missing Data")
 
+# Calculate the number of missing values for each column
+missing_counts <- colSums(is.na(df.proj2.revise))
+```
+```{r}
+#| tab-cap: Missingness by treatment group
 miss_tbl<-df.proj2.revise %>% filter(if_any(everything(), is.na))%>%
   group_by(Group)%>%
   summarise(n = n(),.groups = 'drop')%>%
   rename(`Number of missing observations` = n)%>%
   kable(booktabs = TRUE, digits = 2)
 miss_tbl
-#MCAR???
+```
 
-missing_counts <- colSums(is.na(df.proj2))
-missing_counts
+There is no systematic diifferences in terms of missingness in 4 treatment groups. `ST + varenicline` group had the most: 18 observations with missing data, while `BASC + varenicline` had the least: 12 missingness.
 
+```{r}
+#| tab-cap: Single variable missingness table
+library(naniar)
+missingness_table <- miss_var_summary(df.proj2.revise)
+missingness_table[c(1:7),]
+```
 
-#missing data???
-#str(df.proj2)#int, num, convert some to factors???
+`Nicotine Metabolism Ratio`, `Cigarettes reward value`, and `Readiness to quit` are the top three variables with highest missingness. If we look at the pattern of missingness for multi-variables, some variables are missing together. Two observations had missingness in `Cigarette reward value at baseline` and `Nicotine Metabolism Ratio`; one had missingness in `Baseline readiness to quit smoking` and `Cigarette reward value at baseline`; two had missingness in `Exclusive Mentholated Cigarette User` and `Baseline readiness to quit smoking`; one had missingness in `FTCD score at baseline` and `Anhedonia`.
+
+```{r}
+#| fig-cap: Multi-variable missingness pattern
 md.pattern(df.proj2, plot = TRUE, rotate.names = TRUE)
-
+```
+To further determine the type of missingness, I created binary indicators (1 for missing, 0 for not) for each variable and made a correplation plot for missingness. Since many of the correlations have absolute values being greater than 0.2, maximum being 0.63. I considered the case to pausably be Missing at Random (MAR): probability of an observation being missing depends only on the observed variables.
+```{r}
+#| fig-cap: Multi-variable missingness correlation
 #check MAR
 missing_matrix <- is.na(df.proj2)
 missing_corrs <- cor(df.proj2, use = "pairwise.complete.obs")
 corrplot(missing_corrs, method="number", number.cex = 0.3)
-
-#ITT findings are based on the full sample randomized at baseline and employ a missing-not-at-random (MNAR) assumption that missing = smoking
-
-#MAR (Missing At Random): MICE is designed for MAR data because it imputes missing values based on observed data in other variables, which aligns with the MAR assumption that missingness can be explained by other observed information.
 ```
 
 ```{r}
+#| eval: false
+
 #single variable eda
 
-#do not need to do any variable transformation, remove this chunk!
+#might not need to do any variable transformation
 
 #quantitative variables
 par(mfrow=c(1,2))
@@ -398,6 +401,8 @@ df.proj2.revise %>%
   tab_header(title = "Summary Statistics by Categories") %>%
   fmt_number(columns = starts_with("var"), decimals = 2)
 ```
+
+#MAR (Missing At Random): MICE is designed for MAR data because it imputes missing values based on observed data in other variables, which aligns with the MAR assumption that missingness can be explained by other observed information.
 
 ```{r}
 # #variable transformation, maybe another model???
