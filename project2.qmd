@@ -521,7 +521,7 @@ pred1 <- predict(mod1, train.all, type = "response")#convert to probabilities
 roc1 <- roc(predictor = pred1, 
                response = as.factor(mod1$y), 
                levels = c(0,1), direction = "<")
-plot(roc1, col = "blue", print.auc = TRUE)#print.thres = TRUE
+plot(roc1, col = "blue", print.auc = TRUE, print.thres = TRUE)#print.thres = TRUE
 
 #testing
 x2 <- model.matrix(abst ~ ., data=test.all)[, -1]
@@ -533,14 +533,14 @@ pred2 <- predict(mod2, test.all, type = "response")
 roc2 <- roc(predictor = pred2, 
                response = as.factor(mod2$y), 
                levels = c(0,1), direction = "<")
-plot(roc2, col = "green", print.auc = TRUE, print.auc.y = .4, add=TRUE)#print.thres = TRUE
+plot(roc2, col = "green", print.auc = TRUE, print.auc.y = .4, add=TRUE, print.thres = TRUE)#print.thres = TRUE
 
 legend(1.4, 0.9, legend=c("Derivation data", "Validation data"),
        col=c("blue", "green"),lty=1, cex=0.8)
 ```
 ```{r}
 #| tbl-cap: Discrimination table
-pred_ys <- ifelse(pred1 > 0.475, 1, 0)
+pred_ys <- ifelse(pred1 > 0.157, 1, 0)
 tab_outcome <- table(mod1$y, pred_ys)
 
 sens1 <- tab_outcome[2, 2]/(tab_outcome[2, 1]+tab_outcome[2, 2])
@@ -549,7 +549,7 @@ ppv1 <- tab_outcome[2, 2]/(tab_outcome[1, 2]+tab_outcome[2, 2])
 npv1 <- tab_outcome[1, 1]/(tab_outcome[1, 1]+tab_outcome[2, 1])
 acc1 <- (tab_outcome[1, 1]+tab_outcome[2, 2])/sum(tab_outcome)
 
-pred_ys <- ifelse(pred2 > 0.231, 1, 0)
+pred_ys <- ifelse(pred2 > 0.165, 1, 0)
 tab_outcome <- table(mod2$y, pred_ys)
 
 sens2 <- tab_outcome[2, 2]/(tab_outcome[2, 1]+tab_outcome[2, 2])
@@ -615,6 +615,12 @@ p2<-ggplot(calib_data) +
 
 grid.arrange(p1, p2, nrow = 1)
 ```
+
+```{r}
+#model assumption check
+
+```
+
 
 # Introduction
 
