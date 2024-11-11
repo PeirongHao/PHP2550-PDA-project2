@@ -217,7 +217,7 @@ hist(sqrt(df.proj2$hedonsum_y_pq1))#right skew
 
 par(mfrow=c(1,2))
 hist((df.proj2$shaps_score_pq1))
-hist(log(df.proj2$shaps_score_pq1))#right skew, maybe add indicator later
+hist(log(df.proj2$shaps_score_pq1))#right skew
 
 par(mfrow=c(1,2))
 hist((df.proj2$NMR))
@@ -225,11 +225,9 @@ hist(log(df.proj2$NMR))#right skew->slight left skew
 ```
 
 ```{r}
-#multivariable eda, C+Q
+#| eval: false
 
-# boxplot(df.proj2$age_ps~df.proj2$abst,ylab="total experience in years",xlab="job change decision",main="Boxplots of experience by job change decision",names=c("Not look for job change","Look for a job change"),col=c("thistle1","thistle3"))
-# group.means<-tapply(df.proj2$age_ps,df.proj2$abst,mean)
-# points(1:2,group.means)
+#multivariable eda, C+Q
 
 par(mfrow=c(1,2))
 boxplot(df.proj2$age_ps~df.proj2$abst)
@@ -245,22 +243,41 @@ boxplot(df.proj2$hedonsum_n_pq1~df.proj2$abst)
 
 par(mfrow=c(1,2))
 boxplot(df.proj2$hedonsum_y_pq1~df.proj2$abst)
-boxplot(df.proj2$shaps_score_pq1~df.proj2$abst) #plot this??? b/c other ranges of boxplots are similar
+boxplot(df.proj2$shaps_score_pq1~df.proj2$abst) #other ranges of boxplots are similar
+
 boxplot(df.proj2$NMR~df.proj2$abst)
 ```
+```{r}
+#| fig-cap: Violin plot of Anhedonia by Smoking Abstinence
+
+ggplot(df.proj2.revise, aes(x = `Smoking Abstinence`, y = Anhedonia, fill = `Smoking Abstinence`)) +
+  geom_violin() +
+  theme_minimal()
+```
+I checked the boxplots of all quantitative variables against the outcome. Most of the boxplots have a similar range for both outcome group. However, the range of Anhedonia seems to differ a lot between the two outcome groups (see violin plot), suggesting Anhedonia could be an important predictor.
 
 ```{r}
+#| fig-cap: Multi-variable correlation
+
 non_factor_df <- df.proj2[, sapply(df.proj2, function(col) !is.factor(col))]
 non_factor_df <- non_factor_df[,-1]#remove id column
 corrplot.mixed(cor(non_factor_df, use = "complete.obs"), tl.cex = 0.2, number.cex = 0.3)
 #cor(non_factor_df, use = "complete.obs")
+
 #ftcd_score and ftcd.5.mins have cor=0.6254919659
+#FTCD score at baseline, Smoking with 5 mins of waking up
+
 #mde_curr and bdi_score_w00 have cor=0.57701349
+#Current vs past MDD, BDI score at baseline
+
 #ftcd_score and cpd_ps have cor=0.516755685
+#FTCD score at baseline, Cigarettes per day at baseline phone survey
 ```
 
+I made a correlation plot for all quantitative variables pairs. Overall, the correlations are not strong. Three correlations have an absolute value of correlation greater than 0.5. The strongest correlation, maximum of absolute value of correlation, is 0.625 between FTCD score at baseline and Smoking with 5 mins of waking up. Current vs past MDD and BDI score at baseline have correlation of 0.577. FTCD score at baseline and Cigarettes per day at baseline phone survey have correlation of 0.517. 
+
 ```{r}
-#KEEP THIS
+#| tab-cap: Participant characteristics by outcome group
 df.proj2.revise %>% 
   dplyr::select(-c(Group))%>%
   tbl_summary(by = `Smoking Abstinence`, 
@@ -274,66 +291,58 @@ df.proj2.revise %>%
   as_kable_extra(booktabs = TRUE)
 ```
 
-```{r}
-#categorical variables
-prop.table(table(df.proj2$abst))#convert to factor, outcome of interest: 79% of 0s, 21% of 1s, so unbalanced data
+The data is unbalance, with 79% of 0s and 21% of 1s being the outcome value. From the table comparing baseline variables in two outcome groups, we can identify 4 variables that are significantly different between two outcome groups. `Varenicline`, `Race`, `FTCD score at baseline`, `Nicotine Metabolism Ratio` have p-values <$alpha=0.05$ and can be essential predictors. For each categorical variable except the outcome, I made a two way proportion table for it with the outcome. It is worth pointing out that for those with `Baseline readiness to quit smoking` being 3 or 4, they did not smoke abstinence (outcome = 0). For people with `Baseline readiness to quit smoking` being 5, 31% did smoke abstinence (outcome = 1). For people with higher values of `Baseline readiness to quit smoking`, 14% to 25% did smoke abstinence (outcome = 1).
 
-# summary(df.proj2$Var)#convert to factor
+```{r}
+#| eval: false
+
+#categorical variables
+prop.table(table(df.proj2$abst))#outcome of interest: 79% of 0s, 21% of 1s, so unbalanced data
+
 tab<-prop.table(table(df.proj2$Var, df.proj2$abst),1)
 barplot(t(tab))
 
-# summary(df.proj2$BA)#convert to factor
 prop.table(table(df.proj2$BA, df.proj2$abst),1)
 
-# summary(df.proj2$sex_ps)#convert to factor, 1 or 2 refer to what???
 prop.table(table(df.proj2$sex_ps, df.proj2$abst),1)
 
-# summary(df.proj2$race)#convert to factor, 0 1???
 prop.table(table(df.proj2$race, df.proj2$abst),1)
 
-# summary(df.proj2$Hisp)#convert to factor, 0 1???
 prop.table(table(df.proj2$Hisp, df.proj2$abst),1)
 
-# summary(df.proj2$inc)#convert to factor, NA=3, 1-5
 prop.table(table(df.proj2$inc, df.proj2$abst),1)
 
-# summary(df.proj2$edu)#convert to factor, 1-5, plot this???
 prop.table(table(df.proj2$edu, df.proj2$abst),1)
 
-# summary(df.proj2$ftcd.5.mins)#convert to factor
 prop.table(table(df.proj2$ftcd.5.mins, df.proj2$abst),1)
 
-# summary(df.proj2$otherdiag)#convert to factor
 prop.table(table(df.proj2$otherdiag, df.proj2$abst),1)
 
-# summary(df.proj2$antidepmed)#convert to factor
-#prop.table(table(df.proj2$antidepmed))#73% no, 27% yes
-#prop.tab<-prop.table(table(df.proj2$antidepmed, df.proj2$abst),1)
-#prop.tab
-#barplot(t(prop.tab),xlab="Antidepressant Medication",main="Stacked barplot of smoking abstinence",legend.text = c("Not taking it","Taking medication"),col=c("lightskyblue1","lightblue3"))
+prop.table(table(df.proj2$antidepmed))#73% no, 27% yes
+prop.tab<-prop.table(table(df.proj2$antidepmed, df.proj2$abst),1)
+barplot(t(prop.tab),xlab="Antidepressant Medication",main="Stacked barplot of smoking abstinence",legend.text = c("Not taking it","Taking medication"),col=c("lightskyblue1","lightblue3"))
 
-# summary(df.proj2$mde_curr)#convert to factor
 prop.table(table(df.proj2$mde_curr, df.proj2$abst),1)
 
-# summary(df.proj2$Only.Menthol)#convert to factor, NA=2
 prop.table(table(df.proj2$Only.Menthol, df.proj2$abst),1)
 
-#barplot(df.proj2$readiness)#NA=17
-prop.table(table(df.proj2$readiness, df.proj2$abst),1)#plot this or explain this???
+prop.table(table(df.proj2$readiness, df.proj2$abst),1)#explain this
 
 prop.table(table(df.proj2.revise$Group, df.proj2.revise$`Smoking Abstinence`),1)
+```
 
-#KEEP THIS
+```{r}
+#| fig-cap: Stacked barplot of outcome by treatment group
 prop_table<-prop.table(table(df.proj2.revise$Group, df.proj2.revise$`Smoking Abstinence`),1)
 prop_df <- as.data.frame(prop_table)
 colnames(prop_df) <- c("Intervention", "Outcome", "Proportion")
-ggplot(prop_df, aes(x = Group, y = Proportion, fill = Outcome)) +
+ggplot(prop_df, aes(x = Intervention, y = Proportion, fill = Outcome)) +
   geom_bar(stat = "identity", position = "stack") +
-  labs(y = "Proportion", x = "Intervention", fill = "Smoking Abstinence") +
+  labs(y = "Proportion", x = "Intervention", fill = "Outcome") +
   theme(axis.text.x = element_text(angle = 45, hjust = 1))
-
-#pre-select interaction terms???
 ```
+
+From the *Stacked barplot of outcome by treatment group*, participnats from the Varenicline group had higher proportion of outcome being 1 (Smoking Abstinence). If we look at the placebo groups, `ST` seems to be more effective than `BASC` since `ST` associates with a higher proportion of outcome being 1 (Smoking Abstinence).
 
 ```{r}
 #sig different between four trt groups:
