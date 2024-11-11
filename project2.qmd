@@ -22,19 +22,15 @@ execute:
 set.seed(1)
 library(tidyverse)
 library(dplyr)
+library(glue)
 library(knitr)
 library(tidyr)      
-library(dplyr)       
 library(kableExtra)
-library(readr)
-library(visdat)
-library(gtsummary)
+library(readr) #read csv
+library(visdat) #missing data pattern
 library(mice)
-#library(naniar)
-#library(patchwork)
 library(gridExtra)
 library(corrplot)
-library(olsrr)# model selection
 library(gtsummary)
 
 #read in data file
@@ -43,36 +39,21 @@ df.proj2<-read.csv("project2.csv")
 df.proj2<-df.proj2[,-1]#remove id column
 ```
 
+
+
 ```{r}
-# summary(df.proj2$abst)#convert to factor
-# summary(df.proj2$Var)#convert to factor
-# summary(df.proj2$BA)#convert to factor
-# summary(df.proj2$age_ps)
-# summary(df.proj2$sex_ps)#convert to factor, 1 or 2 refer to what???
-# summary(df.proj2$NHW)#convert to factor, 0 1???
-# summary(df.proj2$Black)#convert to factor, 0 1???
-# summary(df.proj2$Hisp)#convert to factor, 0 1???
-# summary(df.proj2$inc)#convert to factor, NA=3, 1-5
-# summary(df.proj2$edu)#convert to factor, 1-5
-# summary(df.proj2$ftcd_score)#NA=1
-# summary(df.proj2$ftcd.5.mins)#convert to factor
-# summary(df.proj2$bdi_score_w00)#0-51???
-# summary(df.proj2$cpd_ps)
-# summary(df.proj2$crv_total_pq1)#NA=18, drop???
-# summary(df.proj2$hedonsum_n_pq1)#???meaning
-# summary(df.proj2$hedonsum_y_pq1)#???meaning
-# summary(df.proj2$shaps_score_pq1)#NA=3
-# summary(df.proj2$otherdiag)#convert to factor
-# summary(df.proj2$antidepmed)#convert to factor
-# summary(df.proj2$mde_curr)#convert to factor
-# summary(df.proj2$NMR)#NA=21
-# summary(df.proj2$Only.Menthol)#convert to factor, NA=2
-# summary(df.proj2$readiness)#NA=17
+#| tab-cap: Participant characteristics by treatment group
 
 df.proj2.revise <- df.proj2 %>% mutate(
   `Smoking Abstinence` = abst,
-  Varenicline = Var, 
-  `Behavioral Activation` = BA, 
+  Varenicline = case_when(
+      Var == 1 ~ "True",
+      Var == 0 ~ "False"
+    ),
+  `Behavioral Activation` = case_when(
+      BA == 1 ~ "True",
+      BA == 0 ~ "False"
+    ),
   
   Group = case_when(
           Var == 0 & BA == 0 ~ "ST + placebo",
@@ -97,11 +78,11 @@ df.proj2.revise <- df.proj2 %>% mutate(
           edu == 4 ~ "Some college/technical school",
           edu == 5 ~ "College graduate"),
   `Income per year` = case_when(
-          edu == 1 ~ "Less than $20,000",
-          edu == 2 ~ "$20,000 - 35,000",
-          edu == 3 ~ "$35,001 - 50,000",
-          edu == 4 ~ "$50,001 - 75,000",
-          edu == 5 ~ "More than $75,000"),
+          inc == 1 ~ "Less than $20,000",
+          inc == 2 ~ "$20,000 - 35,000",
+          inc == 3 ~ "$35,001 - 50,000",
+          inc == 4 ~ "$50,001 - 75,000",
+          inc == 5 ~ "More than $75,000"),
   `Cigarettes smoked per day` = cpd_ps,
   `Cigarettes reward value` = crv_total_pq1,
   FTCD = ftcd_score,
@@ -147,7 +128,8 @@ df.proj2.revise <- df.proj2 %>% mutate(
                 Anhedonia, `Nicotine Metabolism Ratio`)
 
 
-tbl.summary<-df.proj2.revise %>% dplyr::select(-c(`Smoking Abstinence`, Varenicline, `Behavioral Activation`))%>%
+tbl.summary<-df.proj2.revise %>% 
+  dplyr::select(-c(`Smoking Abstinence`, Varenicline, `Behavioral Activation`))%>%
   tbl_summary(by = Group, 
               type = list(where(is.numeric) ~ "continuous"),
               statistic = list(all_continuous() ~ "{mean} ({sd})"),
@@ -160,7 +142,7 @@ tbl.summary
 ```
 
 ```{r}
-# Visualize missing data pattern
+
 
 df.proj2 <- df.proj2 %>% mutate(
   race = case_when(
@@ -169,6 +151,8 @@ df.proj2 <- df.proj2 %>% mutate(
           .default = 0))%>% 
   select(-c(NHW, Black))
   
+# Visualize missing data pattern
+
 df.proj2%>% abbreviate_vars() %>% vis_miss() + theme(text = element_text(size = 7)) + ggtitle("Missing Data")
 # Calculate the number of missing values for each column
 
@@ -416,6 +400,15 @@ df.proj2.revise %>%
 ```
 
 ```{r}
+# #variable transformation, maybe another model???
+# df.proj2$age_ps<-(df.proj2$age_ps)^2
+# df.proj2$bdi_score_w00<-sqrt(df.proj2$bdi_score_w00)
+# df.proj2$cpd_ps<-log(df.proj2$cpd_ps+1)
+# df.proj2$hedonsum_n_pq1<-sqrt(df.proj2$hedonsum_n_pq1)
+# df.proj2$hedonsum_y_pq1<-sqrt(df.proj2$hedonsum_y_pq1)
+# df.proj2$shaps_score_pq1<-log(df.proj2$shaps_score_pq1+1)
+# df.proj2$NMR<-log(df.proj2$NMR+1)
+
 imp <- mice(df.proj2, meth='pmm', maxit = 10, seed=500, print=F)
 df.imp <- complete(imp, action="long")
 
@@ -433,8 +426,7 @@ categorical_vars <- c("sex_ps", "race", "Hisp", "inc", "edu", "ftcd.5.mins",
 
 interaction_formula <- as.formula(
   paste("~", paste(outer(numeric_vars, categorical_vars, 
-                         function(x, y) paste(x, y, sep = "*")), collapse = " + "))
-)
+                         function(x, y) paste(x, y, sep = "*")), collapse = " + ")))
 
 interaction_matrix <- model.matrix(interaction_formula, df.imp)[,-c(1:21)]#first 21 cols are main effects
 interaction_df <- as.data.frame(interaction_matrix)
@@ -501,7 +493,6 @@ for(m in 1:5){
 coef.avg <- rowMeans(coef.all, na.rm=T)
 ```
 
-
 ```{r}
 library(pROC)
 #| fig-cap: Discrimination plot
@@ -538,6 +529,7 @@ plot(roc2, col = "green", print.auc = TRUE, print.auc.y = .4, add=TRUE, print.th
 legend(1.4, 0.9, legend=c("Derivation data", "Validation data"),
        col=c("blue", "green"),lty=1, cex=0.8)
 ```
+
 ```{r}
 #| tbl-cap: Discrimination table
 pred_ys <- ifelse(pred1 > 0.157, 1, 0)
@@ -617,10 +609,78 @@ grid.arrange(p1, p2, nrow = 1)
 ```
 
 ```{r}
-#model assumption check
+#find out the selected model predictors
+nonzero.param.idx <- which(coef.avg != 0)[-1]
+# length(coef.avg)-1
+# length(colnames(df.imp)[-c(1:3)])
+all.param<-colnames(df.imp)[-c(1:3)]
+nonzero.param <- all.param[nonzero.param.idx]
+nonzero.param
 
+#no transformation: "BA"  "age_ps:edu"  "age_ps:mde_curr"  "bdi_score_w00:readiness"
+#variable transformation: "BA"   "Only.Menthol" "hedonsum_y_pq1:mde_curr"  "bdi_score_w00:readiness"
 ```
 
+```{r}
+#model assumption check
+
+#deviance, perason residuals to find outliers
+
+train.all$logit<-coef.avg[1] + x.train %*% coef.avg[-1]
+train.all$p_hat <- 1 / (1 + exp(-train.all$logit))
+
+# Calculate deviance residuals
+train.all$deviance_residuals <- with(train.all, 
+  sign(abst - p_hat) * sqrt(2 * ((abst * log(abst / p_hat)) + ((1 - abst) * log((1 - abst) / (1 - p_hat)))))
+)
+
+# log(0) is undefined (set 0*log(0) to 0)
+train.all$deviance_residuals[is.na(train.all$deviance_residuals)] <- 0
+
+train.all$pearson_residuals <- with(train.all, (abst - p_hat) / sqrt(p_hat * (1 - p_hat)))
+
+#tables
+summary_table <- train.all %>%
+  group_by(abst) %>%
+  summarize(
+    mean_deviance_residual = mean(deviance_residuals),
+    sd_deviance_residual = sd(deviance_residuals),
+    mean_pearson_residual = mean(pearson_residuals),
+    sd_pearson_residual = sd(pearson_residuals)
+  )
+summary_table
+
+#plots
+ggplot(train.all, aes(x = p_hat, y = deviance_residuals)) +
+  geom_point() +
+  geom_hline(yintercept = 0, color = "red", linetype = "dashed") +
+  labs(x = "Fitted values (Predicted Probability)", y = "Deviance Residuals", title = "Deviance Residuals vs Fitted Values")
+
+ggplot(train.all, aes(x = p_hat, y = pearson_residuals)) +
+  geom_point() +
+  geom_hline(yintercept = 0, color = "red", linetype = "dashed") +
+  labs(x = "Fitted values (Predicted Probability)", y = "Pearson Residuals", title = "Pearson Residuals vs Fitted Values")
+
+# Loop through each predictor variable and plot deviance residuals
+for (var in numeric_vars) {
+  p <- ggplot(train.all, aes_string(x = var, y = "deviance_residuals")) +
+    geom_point() +
+    geom_hline(yintercept = 0, color = "red", linetype = "dashed") +
+    labs(x = paste("Predictor", var),
+         y = "Deviance Residuals",
+         title = paste("Deviance Residuals vs Predictor", var))
+  
+  print(p)  # Print each plot to the graphics device
+}
+
+# Q-Q plot for deviance residuals
+qqnorm(train.all$deviance_residuals, main = "Q-Q Plot of Deviance Residuals")
+qqline(train.all$deviance_residuals, col = "red")
+
+# Repeat similarly for Pearson residuals
+qqnorm(train.all$pearson_residuals, main = "Q-Q Plot of Pearson Residuals")
+qqline(train.all$pearson_residuals, col = "blue")
+```
 
 # Introduction
 
@@ -630,8 +690,8 @@ The goal of this project will be to use the data from this trial to examine base
 
 ```{r}
 #check logit assumptions after model fit
+#variable transformation?
 ```
-
 
 # Results
 
