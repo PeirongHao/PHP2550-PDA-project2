@@ -17,7 +17,7 @@ execute:
 
 # Introduction
 
-Since adults with major depressive disorder (MDD) often exhibit higher nicotine dependence, this project, in collaboration with Dr. George Papandonatos from Brown University's Department of Biostatistics, investigates smoking cessation in adults with MDD. The [prior study](https://pubmed.ncbi.nlm.nih.gov/37069490/) used a 2x2 factorial design to assess the effectiveness of Behavioral Activation for Smoking Cessation (BASC) versus standard behavioral treatment (ST), alongside varenicline versus placebo. Results showed that varenicline significantly improved cessation rates compared to placebo, though no substantial differences were found between BASC and ST in increasing abstinence rates. Building on these findings, this study analyzes baseline variables to identify potential predictors of smoking abstinence, while adjusting for treatment effects.
+Since adults with major depressive disorder (MDD) often exhibit higher nicotine dependence, this project, in collaboration with Dr. George Papandonatos from Brown University's Department of Biostatistics, investigates smoking cessation in adults with MDD. The [prior study](https://pubmed.ncbi.nlm.nih.gov/37069490/) used a 2x2 factorial design to assess the effectiveness of `Behavioral Activation for Smoking Cessation (BASC)` versus `Standard Behavioral Treatment (ST)`, alongside `Varenicline` versus `Placebo`. Results showed that `Varenicline` significantly improved cessation rates compared to `Placebo`, though no substantial differences were found between `BASC` and `ST` in increasing abstinence rates. Building on these findings, this study analyzes baseline variables to identify potential predictors of smoking abstinence, while adjusting for treatment effects.
 
 ```{r}
 #| label: setup
@@ -199,22 +199,21 @@ To further determine the type of missingness, I created binary indicators (1 for
 
 ```{r}
 #| fig-cap: Missing Data Correlation Plot
-#| fig-height: 7
+#| fig-height: 5
 #check MAR
 
 # Create a missingness indicator matrix and correlation matrix
 missing_data <- as.data.frame(is.na(df.proj2.revise) * 1)
 cor_matrix <- cor(missing_data)
 
+# Use short labels on the axes
+short_labels <- abbreviate(colnames(cor_matrix), minlength = 5)
+
 # Plot and add a legend
-image.plot(cor_matrix, zlim = c(-1, 1), main = "Missing Data Correlation Plot", axes = FALSE)
-axis(1, at = seq(0, 1, length = ncol(cor_matrix)), labels = colnames(cor_matrix), las = 2, cex.axis = 0.3)
-axis(2, at = seq(0, 1, length = nrow(cor_matrix)), labels = rownames(cor_matrix), las = 1, cex.axis = 0.3)
+image.plot(cor_matrix, zlim = c(-1, 1), axes = FALSE)
+axis(1, at = seq(0, 1, length = ncol(cor_matrix)), labels = short_labels, las = 2, cex.axis = 0.5)
+axis(2, at = seq(0, 1, length = nrow(cor_matrix)), labels = short_labels, las = 1, cex.axis = 0.5)
 ```
-
-
-
-
 
 ```{r}
 #| eval: false
@@ -637,7 +636,7 @@ p1<-ggplot(calib_data) +
   theme_minimal()+
   ggtitle("Derivation")
 ```
-
+\newpage
 ```{r}
 #| fig-cap: Calibration plot
 #| fig-height: 3
@@ -692,13 +691,13 @@ kable(as.data.frame(nonzero.param.value), col.names = c("Coefficients"),
 
 # Results
 
-Interestingly, the "best" model does not include `Varenicline` but instead includes `Behavioral Activation`, `Age` and its interactions with both `Education` and `Current vs Past MDD`, along with the interaction between `BDI score` and `Readiness to Quit Smoking`. This model is relatively simple, likely due to the effects of L1 (lasso) regularization, which penalizes the absolute sum of the coefficients, reducing complexity by setting less influential variable coefficients to zero. Additionally, incorporating L0 regularization, which minimizes the count of non-zero coefficients, further helps prevent overfitting by selecting an optimal subset of features.
+Interestingly, the "best" model does not include `Varenicline` (which was considered important in the previous study) but instead includes `Behavioral Activation` (which was considered unimportant previously), `Age` and its interactions with both `Education` and `Current vs Past MDD`, along with the interaction between `BDI score` and `Readiness to Quit Smoking`. This model is relatively simple, likely due to the effects of L1 (lasso) regularization, which penalizes the absolute sum of the coefficients, reducing complexity by setting less influential variable coefficients to zero. Additionally, incorporating L0 regularization, which minimizes the count of non-zero coefficients, further helps prevent overfitting by selecting an optimal subset of features.
 
 The interpretation of the coefficients is as follows: For a participant who received `Behavioral Activation`, the odds of achieving `Smoking Abstinence` are $e^{1.384} = 3.99$ times higher than for a participant who received `Standard Behavioral Treatment`, holding all other variables constant. A positive coefficient of 0.066 indicates a slight positive interaction effect between `Age` and `Education` on `Smoking Abstinence`, meaning that the combined effect of `Age` and `Education` marginally increases the odds of `Smoking Abstinence`.The effect size ($e^{0.066} = 1.07$) is relatively modest.
 
 Similarly, the positive coefficient of 0.253 suggests an interaction between `Age` and `Having Current vs. Past Major Depressive Disorder (MDD)` that affects `Smoking Abstinence`. This implies that as `Age` increases, individuals with `current MDD` have approximately 1.29 times ($e^{0.253} = 1.29$) higher odds of achieving `Smoking Abstinence` than those with `past MDD`. A negative coefficient of -0.024 indicates an interaction effect between the `BDI score` (a measure of depression severity) and `Readiness to Quit Smoking` on `Smoking Abstinence` likelihood. This suggests that for individuals with higher `BDI scores`, even with `readiness to quit`, their likelihood of achieving `Smoking Abstinence` might be slightly lower. Although this effect size is small ($e^{-0.024} = 0.98$), it highlights a potential challenge for individuals with more severe depression symptoms.
 
-I also explored various transformations — squared, square root, and log — for quantitative variables including `Age`, `BDI score`, `Cigarettes per day`, `Pleasurable Events Scale` (both substitute and complementary reinforcers), `Anhedonia`, and `Nicotine Metabolism Ratio`, focusing on those with non-normal histogram distributions. The selected model was updated to include `Behavioral Activation`, `Exclusive Mentholated Cigarette User`, an interaction between `Pleasurable Events Scale (complementary reinforcers)` and `Current vs. Past MDD`, and an interaction between `BDI score` and `Readiness to Quit Smoking`. Despite these adjustments, the coefficients remained small, the AUC increased only slightly to 0.76, 95% confidence intervals in the calibration plot moved a little closer toward the red line, indicating minimal improvement. Since `Behavioral Activation`, `Current vs. Past MDD`, and the interaction between `BDI score` and `Readiness to Quit Smoking` were selected in both models (with or without variable transformation), they appear to be essential predictors of the outcome, `Smoking Abstinence`.
+I also explored various transformations — squared, square root, and log — for quantitative variables including `Age`, `BDI score`, `Cigarettes per day`, `Pleasurable Events Scale` (both substitute and complementary reinforcers), `Anhedonia`, and `Nicotine Metabolism Ratio`, focusing on those with non-normal histogram distributions. The selected model was updated to include `Behavioral Activation`, `Exclusive Mentholated Cigarette User`, an interaction between `Pleasurable Events Scale (complementary reinforcers)` and `Current vs. Past MDD`, and an interaction between `BDI score` and `Readiness to Quit Smoking`. Despite these adjustments, the coefficients remained small, the AUC increased only slightly to 0.76, 95% confidence intervals in the calibration plot moved a little closer toward the red line, indicating minimal improvement. Since `Behavioral Activation`, `Current vs. Past MDD`, and the interaction between `BDI score` and `Readiness to Quit Smoking` were selected in both models (with or without variable transformation), they appear to be essential predictors of the outcome, `Smoking Abstinence`. 
 
 ```{r}
 #| tbl-cap: Pearson Residuals Summary Table
