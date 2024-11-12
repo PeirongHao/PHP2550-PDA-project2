@@ -25,16 +25,17 @@ Since adults with major depressive disorder (MDD) often exhibit higher nicotine 
 
 set.seed(1)
 library(tidyverse)
-library(dplyr)
-library(glue)
 library(knitr)
-library(tidyr)      
+library(tidyr) 
+library(dplyr)
 library(kableExtra)
 library(readr) #read csv
 library(visdat) #missing data pattern
-library(mice)
 library(gridExtra)
 library(corrplot)
+
+library(glue)
+library(mice)
 library(gtsummary)
 library(naniar)
 library(gt)
@@ -656,7 +657,7 @@ grid.arrange(p1, p2, nrow = 1)
 Figure 7 compares observed versus expected proportions, with the red line representing a perfect fit where the estimated and true distributions align. In the derivation set's calibration plot, the estimated and true distributions do not align well, as 6 out of 9 confidence intervals fail to capture the red line. The calibration in the validation set looks better, with most 95% confidence intervals capturing the red line. However, the validation plot's confidence intervals are much wider, indicating substantial uncertainty. Notably, a single dot appears in the upper right corner of both calibration plots, which may be due to the limited proportions of observations with smoking abstinence — only 21% in the derivation set and 23% in the validation set.
 
 ```{r}
-#| tbl-cap: Coefficients of logistic model
+#| tbl-cap: Coefficients of the Logistic Model
 
 #find out the selected model predictors
 nonzero.param.idx <- which(coef.avg != 0)[-1]
@@ -677,14 +678,15 @@ kable(as.data.frame(nonzero.param.value), col.names = c("Coefficients"),
 #variable transformation: "BA"   "Only.Menthol" "hedonsum_y_pq1:mde_curr"  "bdi_score_w00:readiness"
 ```
 
-A positive coefficient of 1.384 means that individuals who engage in Behavioral Activation are more likely to achieve smoking abstinence. Holding other variables constant, Behavioral Activation increases the odds of smoking abstinence by approximately 4 (=$e^{1.384}$) times.
+# Results
 
-A positive coefficient of 0.066 indicates that there’s a small positive interaction effect between Age and Education on smoking abstinence. This means that the combined effect of age and education slightly increases the odds of smoking abstinence. However, this effect is relatively small compared to the other predictors.
+Interestingly, the "best" model does not include `Varenicline` but instead includes `Behavioral Activation`, `Age` and its interactions with both `Education` and `Current vs Past MDD`, along with the interaction between `BDI score` and `Readiness to Quit Smoking`. This model is relatively simple, likely due to the effects of L1 (lasso) regularization, which penalizes the absolute sum of the coefficients, reducing complexity by setting less influential variable coefficients to zero. Additionally, incorporating L0 regularization, which minimizes the count of non-zero coefficients, further helps prevent overfitting by selecting an optimal subset of features.
 
-This positive coefficient suggests that there’s an interaction between Age and having Current vs Past Major Depressive Disorder (MDD) that influences smoking abstinence. This implies that, as age increases, individuals with current vs. past MDD have 1.29 (=$e^{0.253}$) times higher odds of achieving smoking abstinence than those with past MDD only.
+The interpretation of the coefficients is as follows: For a participant who received `Behavioral Activation`, the odds of achieving `Smoking Abstinence` are $e^{1.384} = 3.99$ times higher than for a participant who received `Standard Behavioral Treatment`, holding all other variables constant. A positive coefficient of 0.066 indicates a slight positive interaction effect between `Age` and `Education` on `Smoking Abstinence`, meaning that the combined effect of `Age` and `Education` marginally increases the odds of `Smoking Abstinence`.The effect size ($e^{0.066} = 1.07$) is relatively modest.
 
-A negative coefficient of -0.024 indicates that there’s an interaction effect between BDI score (a measure of depression severity) and Readiness to Quit Smoking on the likelihood of smoking abstinence. This suggests that, for individuals with higher BDI scores, even if they are ready to quit, they might have a lower likelihood of achieving smoking abstinence.
-The effect size is modest ($e^{-0.024}$=0.98), but it points to a potential barrier for individuals with higher depression symptoms.
+Similarly, the positive coefficient of 0.253 suggests an interaction between `Age` and `Having Current vs. Past Major Depressive Disorder (MDD)` that affects `Smoking Abstinence`. This implies that as `Age` increases, individuals with `current MDD` have approximately 1.29 times ($e^{0.253} = 1.29$) higher odds of achieving `Smoking Abstinence` than those with `past MDD`. A negative coefficient of -0.024 indicates an interaction effect between the `BDI score` (a measure of depression severity) and `Readiness to Quit Smoking` on `Smoking Abstinence` likelihood. This suggests that for individuals with higher `BDI scores`, even with `readiness to quit`, their likelihood of achieving `Smoking Abstinence` might be slightly lower. Although this effect size is small ($e^{-0.024} = 0.98$), it highlights a potential challenge for individuals with more severe depression symptoms.
+
+I also explored various transformations — squared, square root, and log — for quantitative variables including `Age`, `BDI score`, `Cigarettes per day`, `Pleasurable Events Scale` (both substitute and complementary reinforcers), `Anhedonia`, and `Nicotine Metabolism Ratio`, focusing on those with non-normal histogram distributions. The selected model was updated to include `Behavioral Activation`, `Exclusive Mentholated Cigarette User`, an interaction between `Pleasurable Events Scale (complementary reinforcers)` and `Current vs. Past MDD`, and an interaction between `BDI score` and `Readiness to Quit Smoking`. Despite these adjustments, the coefficients remained small, the AUC increased only slightly to 0.76, 95% confidence intervals in the calibration plot moved a little closer toward the red line, indicating minimal improvement. Since `Behavioral Activation`, `Current vs. Past MDD`, and the interaction between `BDI score` and `Readiness to Quit Smoking` were selected in both models (with or without variable transformation), they appear to be essential predictors of the outcome, `Smoking Abstinence`.
 
 ```{r}
 #| tbl-cap: Pearson Residuals Summary Table
@@ -721,7 +723,7 @@ kable(summary_table, format = "latex", booktabs = TRUE, digits = 2)%>%
   kable_styling(latex_options = "hold_position")
 ```
 
-Since the absolute value of the mean of Pearson residuals is less than 2 for both outcome groups, the model appears to fit well. Comparing the means, the model seems to overestimate the probability of smoking abstinence for non-abstinent individuals (indicated by a negative mean) and underestimate the likelihood of abstinence for abstinent individuals (positive mean).
+Since the absolute value of the mean of pearson residuals is less than 2 for both outcome groups, the model appears to fit well. Comparing the means, the model seems to overestimate the probability of smoking abstinence for non-abstinent individuals (indicated by a negative mean) and underestimate the likelihood of abstinence for abstinent individuals (positive mean).
 
 ```{r}
 #| eval: false
@@ -760,11 +762,7 @@ qqline(train.all$pearson_residuals, col = "blue")
 
 # Discussion
 
-Behavioral Activation has the largest positive effect, significantly increasing the odds of smoking abstinence. Age and Education and Age with Current vs Past MDD both have positive but smaller effects on smoking abstinence. Higher Depression Symptoms (BDI score) combined with Readiness to Quit Smoking has a slightly negative impact, suggesting that depression might interfere with the ability to quit smoking even among those who are motivated. 
-
-
-# Summary
-This model highlights the importance of Behavioral Activation in promoting smoking abstinence, while also indicating that age, education, mental health status, and readiness to quit have nuanced effects on the likelihood of successfully quitting smoking.
+This study focuses on individuals with mental health disorders, specifically MDD, and examines the effectiveness of different treatments, psychological and demographic factors that influence smoking cessation. The model, constructed using L1 and L0 regularization techniques, is simplified by reducing complexity and selecting only the most predictive features. Key predictors and interaction effects influencing smoking abstinence are identified. However, certain limitations should be noted: the model’s simplicity may exclude complex relationships, and missing data could introduce potential bias. Despite these limitations, the findings of this study highlight the value of `Behavioral Activation` and the intricate role of psychological factors such as `Current vs. Past MDD`, `BDI score`, and `Readiness to Quit Smoking` in influencing smoking cessation outcomes. This information is vital for future research and policy decisions in the field of mental health and smoking cessation.
 
 \newpage
 
