@@ -34,6 +34,7 @@ library(visdat) #missing data pattern
 library(gridExtra)
 library(corrplot)
 
+library(fields)
 library(glue)
 library(mice)
 library(gtsummary)
@@ -189,20 +190,31 @@ As shown in Table 3, the top three variables with the highest missingness were `
 
 ```{r}
 #| fig-cap: Multi-variable missingness pattern
-#| fig-height: 3
-md.plot<-md.pattern(df.proj2, plot = TRUE, rotate.names = TRUE)
+#| fig-height: 4
+par(cex = 0.6) 
+md.plot<-md.pattern(df.proj2.revise, plot = TRUE, rotate.names = TRUE)
 ```
 
-To further determine the type of missingness, I created binary indicators (1 for missing, 0 for not missing) for each variable and generated a correlation plot for missingness (refer to Figure 2). Since many of the correlations had absolute values greater than 0.2, with a maximum of 0.63, I considered the missingness to plausibly be Missing at Random (MAR), meaning the probability of an observation being missing depends only on the observed variables.
+To further determine the type of missingness, I created binary indicators (1 for missing, 0 for not missing) for each variable and generated a correlation plot for missingness (refer to Figure 2). Since some correlations had absolute values greater than 0.3, with a maximum of 0.58, I considered the missingness to plausibly be Missing at Random (MAR), meaning the probability of an observation being missing depends only on the observed variables.
 
 ```{r}
-#| fig-cap: Multi-variable missingness correlation
-#| fig-height: 6
+#| fig-cap: Missing Data Correlation Plot
+#| fig-height: 7
 #check MAR
-missing_matrix <- is.na(df.proj2)
-missing_corrs <- cor(df.proj2, use = "pairwise.complete.obs")
-corrplot(missing_corrs, method="number", number.cex = 0.3)
+
+# Create a missingness indicator matrix and correlation matrix
+missing_data <- as.data.frame(is.na(df.proj2.revise) * 1)
+cor_matrix <- cor(missing_data)
+
+# Plot and add a legend
+image.plot(cor_matrix, zlim = c(-1, 1), main = "Missing Data Correlation Plot", axes = FALSE)
+axis(1, at = seq(0, 1, length = ncol(cor_matrix)), labels = colnames(cor_matrix), las = 2, cex.axis = 0.3)
+axis(2, at = seq(0, 1, length = nrow(cor_matrix)), labels = rownames(cor_matrix), las = 1, cex.axis = 0.3)
 ```
+
+
+
+
 
 ```{r}
 #| eval: false
