@@ -15,9 +15,19 @@ execute:
   output: true
 ---
 
+# Abstract
+
+Smoking cessation is an important public health challenge, particularly for individuals with major depressive disorder (MDD), who are more likely to smoke heavily and experience severe withdrawal symptoms. This project aimed to analyze predictors of smoking abstinence among adult smokers with MDD while evaluating the effectiveness of pharmacotherapy and psychotherapy interventions. Data from a 2×2 factorial randomized clinical trial involving 300 participants were used. The trial compared `varenicline` with `placebo` and `behavioral activation for smoking cessation (BASC)` with `standard behavioral treatment (ST)`. Using L1 and L0 regularization techniques, the project identified key predictors influencing smoking abstinence, including the `Fagerstrom Test for Nicotine Dependence (FTCD) score` and the interaction between `varenicline` and the `nicotine metabolism ratio`. The findings underscore the importance of `pharmacotherapy` with `varenicline` and highlight additional factors that could inform personalized smoking cessation strategies. 
+
 # Introduction
 
-Since adults with major depressive disorder (MDD) often exhibit higher nicotine dependence, this project, in collaboration with Dr. George Papandonatos from Brown University's Department of Biostatistics, investigates smoking cessation in adults with MDD. The [prior study](https://pubmed.ncbi.nlm.nih.gov/37069490/) used a 2x2 factorial design to assess the effectiveness of `Behavioral Activation for Smoking Cessation (BASC)` versus `Standard Behavioral Treatment (ST)`, alongside `Varenicline` versus `Placebo`. Results showed that `Varenicline` significantly improved cessation rates compared to `Placebo`, though no substantial differences were found between `BASC` and `ST` in increasing abstinence rates. Building on these findings, this study analyzes baseline variables to identify potential predictors of smoking abstinence, while adjusting for treatment effects.
+According to [1], major depressive disorder (MDD) is the most common mental health disorder. Research has demonstrated that individuals with MDD not only tend to smoke more heavily but also face more severe withdrawal symptoms, making smoking cessation particularly challenging. Despite the high prevalence of smoking in this population, there have been limited clinical trials aimed at optimizing tobacco treatment strategies for smokers with MDD. In particular, the effectiveness of combining `psychotherapy` and `pharmacotherapy` requires further investigation. Therefore, [1] employed a 2×2 factorial design to evaluate the effectiveness of `psychotherapy` being `behavioral activation for smoking cessation (BASC)` versus `standard behavioral treatment (ST)` and `pharmacotherapy` being `varenicline` versus `placebo`. It revealed that while `varenicline` significantly improved cessation rates compared to `placebo`, there were no substantial differences between `BASC` and `ST` in enhancing abstinence rates. These findings suggested that `pharmacotherapy` with `varenicline` is effective, but the benefits of additional behavioral interventions may depend on individual characteristics. 
+
+Building on the prior work, this project, conducted in collaboration with Dr. George Papandonatos from Brown University's Department of Biostatistics, focused on analyzing baseline variables to identify potential predictors of smoking abstinence, while accounting for treatment effects. The findings aimed to contribute to the development of personalized smoking cessation strategies. The data were collected at Northwestern University and the University of Pennsylvania research clinics. A total of 300 adult participants, daily smokers diagnosed with major depressive disorder (MDD) based on DSM-5 criteria, were enrolled in the study. Each participant expressed an interest in quitting smoking. The trial employed a stratified randomization strategy to ensure a balanced representation across treatment groups, accounting for the clinical site, sex, and severity of depressive symptoms. 
+
+The primary outcome of interest was smoking abstinence, a binary variable indicating whether a participant achieved smoking abstinence at the follow-up assessment.The dataset included two treatment variables: pharmacotherapy and psychotherapy. Pharmacotherapy was a binary variable that identified whether participants received varenicline or a placebo medication. Psychotherapy reflected whether participants underwent behavioral activation for smoking cessation (BASC) or standard behavioral treatment (ST). Demographic variables included age, sex, racial and ethnic identities, income, and educational attainment. Baseline smoking behavior and nicotine dependence were assessed through several measures, including the Fagerstrom Test for Nicotine Dependence (FTCD) score, nicotine metabolism ratio (NMR), and the number of cigarettes smoked per day. Additional variables captured whether participants smoked their first cigarette within five minutes of waking and whether they exclusively smoked menthol cigarettes.
+
+Psychological and psychiatric variables provided insights into mental health and smoking-related behaviors. Depressive symptom severity at baseline was measured using the Beck Depression Inventory (BDI). Cigarette reward value quantified the perceived pleasure associated with smoking. The Pleasurable Events Scale measured two rewarding activities: substitute reinforcers and complementary reinforcers. Anhedonia, a condition characterized by a reduced ability to experience pleasure, was included as it was hypothesized that behavioral activation therapy could address this symptom to increase smoking abstinence. Additionally, baseline readiness to quit smoking captured participants' self-reported motivation to stop smoking. One variable indicated whether participants had any other lifetime psychiatric diagnoses based on DSM-5 criteria. Another variable reflected whether participants were taking antidepressant medication. There was also a variable distinguishing participants with current MDD or current and past MDD from those with only a past diagnosis of the disorder.
 
 ```{r}
 #| label: setup
@@ -145,7 +155,7 @@ tbl.summary<-df.proj2.revise %>%
 tbl.summary
 ```
 
-There were 300 observations with unique IDs (no duplicated observations) and 24 variables. Except for one variable serving as the ID, the others are variables of interest, including the outcome, treatments, and baseline covariates. Among all baseline characteristics, only `Antidepressant medication` has a p-value < $\alpha$ = 0.05, indicating it is statistically significantly different across the four treatment groups (see Table 1). 
+There were 300 observations with unique IDs (no duplicated observations) and 24 variables. Except for one variable serving as the ID, the others were variables of interest, including the outcome, treatments, and baseline covariates. Among all baseline characteristics, only `Antidepressant medication` had a p-value \< $\alpha$ = 0.05, indicating it was statistically significantly different across the four treatment groups (see Table 1).
 
 ```{r}
 #modify race variable
@@ -153,8 +163,17 @@ df.proj2 <- df.proj2 %>% mutate(
   race = case_when(
           NHW == 1 & Black == 0 ~ 1,
           NHW == 0 & Black == 1 ~ 2,
-          .default = 0))%>% 
-  select(-c(NHW, Black))
+          .default = 0),
+  group = case_when(
+          Var == 0 & BA == 0 ~ 1,
+          Var == 0 & BA == 1 ~ 2,
+          Var == 1 & BA == 0 ~ 3,
+          Var == 1 & BA == 1 ~ 4))%>% 
+  select(-c(NHW, Black)) %>% mutate(
+    across(c(abst, BA, Var, group, sex_ps, race, 
+           Hisp, inc, edu, ftcd.5.mins,
+          otherdiag, antidepmed, 
+          mde_curr, Only.Menthol,readiness), as.factor))
 
 # Visualize missing data pattern
 
@@ -175,31 +194,30 @@ kable(miss_tbl, format = "latex", booktabs = TRUE, digits = 2)%>%
   kable_styling(latex_options = "hold_position")
 ```
 
-According to the assumptions in the paper, the full sample was randomized at baseline and employed a missing-not-at-random (MNAR) assumption, meaning all missing outcomes were considered as smoking. There were no systematic differences in terms of missingness across the four treatment groups (see Table 2). The `ST + varenicline` group had the most missing data, with 18 observations, while the `BASC + varenicline` group had the least, with 12 missing observations.
+According to the assumptions in the paper, the full sample was randomized at baseline and employed a missing-not-at-random (MNAR) assumption, meaning all missing outcomes were considered as smoking. There were no systematic differences in terms of missingness across the four treatment groups (see Table 2). The `standard behavioral treatment + varenicline` group had the most missing data, with 18 observations, while the `behavioral activation for smoking cessation + varenicline` group had the least, with 12 missing observations. As shown in Table 3, the top three variables with the highest missingness were `nicotine metabolism ratio`, `cigarettes reward value`, and `readiness to quit`. 
 
 ```{r}
 #| tab-cap: Single variable missingness table
 missingness_table <- miss_var_summary(df.proj2.revise)
-missingness_table <- missingness_table[c(1:7),]
+missingness_table <- missingness_table[c(1:7),]#first 7 variables have missing values
 
 kable(missingness_table, format = "latex", booktabs = TRUE, digits = 2)%>%
   kable_styling(latex_options = "hold_position")
 ```
 
-As shown in Table 3, the top three variables with the highest missingness were `Nicotine Metabolism Ratio`, `Cigarettes reward value`, and `Readiness to quit`. Examining the pattern of missingness across multiple variables revealed that some variables tended to be missing together. Specifically, two observations had missing values in both `Cigarette reward value at baseline` and `Nicotine Metabolism Ratio`; one observation had missing values in both `Baseline readiness to quit smoking` and `Cigarette reward value at baseline`; two observations had missingness in both `Exclusive Mentholated Cigarette User` and `Baseline readiness to quit smoking`; and one observation had missing values in both `FTCD score at baseline` and `Anhedonia`.
-
 ```{r}
+#| eval: false
 #| fig-cap: Multi-variable missingness pattern
-#| fig-height: 4
+#| fig-height: 3
 par(cex = 0.6) 
 md.plot<-md.pattern(df.proj2.revise, plot = TRUE, rotate.names = TRUE)
 ```
 
-To further determine the type of missingness, I created binary indicators (1 for missing, 0 for not missing) for each variable and generated a correlation plot for missingness (refer to Figure 2). Since some correlations had absolute values greater than 0.3, with a maximum of 0.58, I considered the missingness to plausibly be Missing at Random (MAR), meaning the probability of an observation being missing depends only on the observed variables.
+To further determine the type of missingness, I created binary indicators (1 for missing, 0 for not missing) for each variable and generated a correlation plot for missingness (refer to Figure 1). Since some correlations had absolute values greater than 0.3, with a maximum of 0.58, I considered the missingness to plausibly be missing at random (MAR), meaning the probability of an observation being missing depended only on the observed variables.
 
 ```{r}
 #| fig-cap: Missing Data Correlation Plot
-#| fig-height: 5
+#| fig-height: 4
 #check MAR
 
 # Create a missingness indicator matrix and correlation matrix
@@ -279,35 +297,31 @@ boxplot(df.proj2$shaps_score_pq1~df.proj2$abst) #other ranges of boxplots are si
 
 boxplot(df.proj2$NMR~df.proj2$abst)
 ```
+
 ```{r}
 #| fig-cap: Violin plot of Anhedonia by Smoking Abstinence
-#| fig-height: 2.5
+#| fig-height: 2
 ggplot(df.proj2.revise, aes(x = `Smoking Abstinence`, y = Anhedonia, fill = `Smoking Abstinence`)) +
   geom_violin() +
   theme_minimal()
 ```
 
-I then checked the boxplots of all quantitative variables against the outcome. Most of the boxplots showed a similar range for both outcome groups. However, the range of `Anhedonia` appeared to differ significantly between the two outcome groups (see Figure 3), suggesting that `Anhedonia` could be an important predictor.
+I then checked the boxplots of all quantitative variables against the outcome. Most of the boxplots showed a similar range for both outcome groups. However, the range of `anhedonia` appeared to differ significantly between the two outcome groups (see Figure 2), suggesting that `anhedonia` could be an important predictor.
 
 ```{r}
 #| fig-cap: Multi-variable correlation
-#| fig-height: 5
-non_factor_df <- df.proj2[, sapply(df.proj2, function(col) !is.factor(col))]
+#| fig-height: 3
+non_factor_df <- df.proj2.revise[, sapply(df.proj2.revise, function(col) !is.factor(col))]
 non_factor_df <- non_factor_df[,-1]#remove id column
-corrplot.mixed(cor(non_factor_df, use = "complete.obs"), tl.cex = 0.2, number.cex = 0.3)
+
+short_colnames <- abbreviate(colnames(non_factor_df), minlength = 5)
+colnames(non_factor_df) <- short_colnames
+
+corrplot.mixed(cor(non_factor_df, use = "complete.obs"), tl.cex = 0.7, number.cex = 0.7)
 #cor(non_factor_df, use = "complete.obs")
-
-#ftcd_score and ftcd.5.mins have cor=0.6254919659
-#FTCD score at baseline, Smoking with 5 mins of waking up
-
-#mde_curr and bdi_score_w00 have cor=0.57701349
-#Current vs past MDD, BDI score at baseline
-
-#ftcd_score and cpd_ps have cor=0.516755685
-#FTCD score at baseline, Cigarettes per day at baseline phone survey
 ```
 
-The next step was to create a correlation plot (Figure 4) for all pairs of quantitative variables. Overall, the correlations were not strong, with only three pairs showing an absolute correlation value greater than 0.5. The strongest correlation, with an absolute value of 0.625, was between the `FTCD score at baseline` and `Smoking within 5 minutes of waking up`. The correlation between `Current vs. Past MDD` and `BDI score` at baseline was 0.577, and the correlation between `FTCD score at baseline` and `Cigarettes per day at the baseline phone survey` was 0.517.
+The next step was to create a correlation plot (Figure 3) for all pairs of quantitative variables. Overall, the correlations were not strong, with only one pair showing an absolute correlation value greater than 0.5. The strongest correlation, with an absolute value of 0.53, was between the `Fagerstrom Test for Nicotine Dependence (FTCD) score` and `cigarettes smoked per day`. 
 
 ```{r}
 #| tab-cap: Participant characteristics by outcome group
@@ -325,7 +339,7 @@ df.proj2.revise %>%
   kable_styling(latex_options = "scale_down", font_size = 7)
 ```
 
-The data was unbalanced, with 79% of observations having an outcome value of 0 and 21% having an outcome value of 1. From Table 4, four variables were significantly different between groups: `Varenicline`, `Race`, `FTCD score at baseline`, and `Nicotine Metabolism Ratio`, each with p-values < $\alpha = 0.05$, indicating they could be important predictors. For each categorical variable (except the outcome), I created a two-way proportion table with the outcome. Notably, individuals with a `Baseline readiness to quit smoking` score of 3 or 4 did not achieve smoking abstinence (outcome = 0). Among those with a `readiness` score of 5, 31% achieved smoking abstinence (outcome = 1). For individuals with higher `readiness` scores, 14% to 25% achieved smoking abstinence.
+The data were unbalanced, with 79% of observations having an outcome value of 0 and 21% having an outcome value of 1. From Table 4, four variables were significantly different between groups: `varenicline`, `race`, `Fagerstrom Test for Nicotine Dependence (FTCD) score`, and `nicotine metabolism ratio`, each with p-values < $\alpha = 0.05$, indicating they could be important predictors. For each categorical variable (except the outcome), I created a two-way proportion table with the outcome. Notably, individuals with a `readiness to quit smoking` score of 3 or 4 did not achieve smoking abstinence (outcome = 0). Among those with a `readiness` score of 5, 31% achieved smoking abstinence (outcome = 1). For individuals with higher `readiness` scores, 14% to 25% achieved smoking abstinence.
 
 ```{r}
 #| eval: false
@@ -367,6 +381,7 @@ prop.table(table(df.proj2.revise$Group, df.proj2.revise$`Smoking Abstinence`),1)
 
 ```{r}
 #| fig-cap: Stacked barplot of outcome by treatment group
+#| fig-height: 3
 prop_table<-prop.table(table(df.proj2.revise$Group, df.proj2.revise$`Smoking Abstinence`),1)
 prop_df <- as.data.frame(prop_table)
 colnames(prop_df) <- c("Intervention", "Outcome", "Proportion")
@@ -376,7 +391,7 @@ ggplot(prop_df, aes(x = Intervention, y = Proportion, fill = Outcome)) +
   theme(axis.text.x = element_text(angle = 45, hjust = 1))
 ```
 
-From Figure 5, participants in the `Varenicline` group had a higher proportion of outcomes equal to 1 (Smoking Abstinence). Among the `Placebo` groups, `ST` appeared to be more effective than `BASC`, as `ST` was associated with a higher proportion of outcomes equal to 1.
+From Figure 4, participants in the `varenicline` group had a higher proportion of outcomes equal to 1 (Smoking Abstinence). Among the `placebo` groups, `standard behavioral treatment (ST)` appeared to be more effective than `behavioral activation for smoking cessation (BASC)`, as `ST` was associated with a higher proportion of outcomes equal to 1.
 
 ```{r}
 #| eval: false
@@ -402,7 +417,7 @@ df.proj2.revise %>% ggplot(aes(y=`Nicotine Metabolism Ratio`, x=FTCD, color=`Ant
   theme_minimal()+
   facet_grid(.~Race)#+
   #theme(legend.position="none")+
- # labs(x = "Wind speed in km/hr", y = "Completion Time in hours")
+ # labs(x = "", y = "")
 
 
 ggplot(df.proj2.revise,
@@ -433,9 +448,10 @@ ggplot(df.proj2.revise, aes(y = `Nicotine Metabolism Ratio`, x = FTCD,
   theme_minimal()
 ```
 
-Because `Antidepressant medication` is statistically significantly different between four treatment groups, and `Nicotine Metabolism Ratio(NMR)`, `FTCD`, `Race` are statistically significantly different between two outcome groups, I made Table 5 for them. White participants have higher `NMR` and `FTCD` compared to other races. However, there is not a clear trend of whether taking antidepressant medication affect `NMR` and `FTCD`.
+Because `antidepressant medication` was statistically significantly different between four treatment groups, and `nicotine metabolism ratio (NMR)`, `Fagerstrom Test for Nicotine Dependence (FTCD) score`, `race` were statistically significantly different between two outcome groups, I made a table for them. White participants have higher `NMR` and `FTCD score` compared to other races. However, there was not a clear trend of whether taking antidepressant medication affects `NMR` and `FTCD score`.
 
 ```{r}
+#| eval: false
 #| tbl-cap: Summary statistics for four variables
 
 df.proj2.revise %>%
@@ -450,14 +466,20 @@ df.proj2.revise %>%
     FTCD_sd = sd(FTCD,na.rm=T)) %>% 
   gt() %>%
   tab_options(table.font.size = px(13))%>%
-  fmt_number(decimals = 2)
+  fmt_number(decimals = 2)%>%
+  cols_label(
+    NMR_mean = "NMR\nMean",
+    NMR_sd = "NMR\nSD",
+    FTCD_mean = "FTCD\nMean",
+    FTCD_sd = "FTCD\nSD"
+  )
 ```
 
 # Statistical Modeling
 
-As discussed previously, the missingness in this case is likely Missing at Random (MAR). Since MICE is designed for MAR data — imputing missing values based on observed data in other variables — I used MICE to impute five datasets before splitting them into testing and training sets. It is preferable to perform multiple imputation before splitting, as this ensures imputations are consistent across the entire dataset, leading to comparable results in both training and test sets. For each imputed dataset, there are four treatment groups, and within each group, I applied an 80%-20% train-test split. In other words, for each imputed dataset, I obtained a final training and testing set by combining the training and testing subsets from each treatment group.
+As discussed previously, the missingness in this case was likely Missing at Random (MAR). Since the [mice (Multivariate Imputation by Chained Equations)](https://www.rdocumentation.org/packages/mice/versions/3.17.0/topics/mice) package was designed for MAR data --- imputing missing values based on observed data in other variables --- I used `mice` to impute five datasets before splitting them into testing and training sets. Given the limited amount of available data, I performed multiple imputation prior to splitting the dataset, which could have resulted in data leakage. For each imputed dataset, there were four treatment groups, and within each treatment group, I applied an 80%-20% train-test split. In other words, for each imputed dataset, I obtained a final training and testing set by combining the training and testing subsets from each treatment group.
 
-In addition to main effects, I included several interaction terms for modeling. One interaction was between `Varenicline` and `Behavioral Activation`, while the others were all possible interactions between a quantitative predictor and a categorical predictor (except the outcome and two treatment variables). I selected the L0+L1 regularization model from the L0Learn library and used 5-fold cross-validation to identify the optimal gamma and lambda values. Each imputed dataset produced one set of estimated coefficients, and the final pooled estimates were obtained by averaging the results across the five imputed datasets.
+In addition to main effects, I included several interaction terms for modeling. One interaction was between `varenicline` and `behavioral activation`, while the others were all possible interactions between a quantitative predictor and a categorical predictor (except the outcome and two treatment variables). I selected the L0+L1 regularization model from the [L0Learn](https://cran.r-project.org/web/packages/L0Learn/vignettes/L0Learn-vignette.html) library and used 5-fold cross-validation to identify the optimal gamma and lambda values. Each imputed dataset produced one set of estimated coefficients, and the final pooled estimates were obtained by averaging the results across the five imputed datasets.
 
 ```{r}
 # possible variable transformation to normzalize quantitative variables
@@ -473,43 +495,48 @@ In addition to main effects, I included several interaction terms for modeling. 
 imp <- mice(df.proj2, meth='pmm', maxit = 10, seed=500, print=F)
 df.imp <- complete(imp, action="long")
 
-numeric_vars <- c("age_ps", "ftcd_score", "bdi_score_w00", "cpd_ps",
+base_vars <- c("age_ps", "ftcd_score", "bdi_score_w00", "cpd_ps",
                           "crv_total_pq1", "hedonsum_n_pq1","hedonsum_y_pq1",
-                          "shaps_score_pq1","NMR")#9
-categorical_vars <- c("sex_ps", "race", "Hisp", "inc", "edu", "ftcd.5.mins", 
+                          "shaps_score_pq1","NMR",
+               "sex_ps", "race", "Hisp", "inc", "edu", "ftcd.5.mins", 
                       "otherdiag", "antidepmed", "mde_curr", "Only.Menthol",
-                        "readiness")#11
+                        "readiness")
+trt_vars <- c("Var", "BA")
+
+
+# select variables in df.imp starting with base_vars or trt_vars
+selected_vars <- colnames(df.imp)[sapply(colnames(df.imp), function(var) {
+  any(startsWith(var, base_vars)) || any(startsWith(var, trt_vars))
+})]
 
 interaction_formula <- as.formula(
-  paste("~", paste(outer(numeric_vars, categorical_vars, 
-                         function(x, y) paste(x, y, sep = "*")), collapse = " + ")))
+  paste("~", paste(outer(base_vars, trt_vars, function(x, y) paste(x, y, sep = "*")), 
+                   collapse = " + "))
+)
 
-interaction_matrix <- model.matrix(interaction_formula, df.imp)[,-c(1:21)]#first 21 cols are main effects
-interaction_df <- as.data.frame(interaction_matrix)
+interaction_matrix <- model.matrix(interaction_formula, df.imp)
+interaction_df <- as.data.frame(interaction_matrix)[,-c(1:36)]#remove main effects w/o main effect
 df.imp <- cbind(df.imp, interaction_df)
-df.imp$Var_BA <- df.imp$Var * df.imp$BA
 
-ncol = ncol(df.imp)-2 #main effect and all possible interaction
+ncol <- 90 #exclude #id and #imp, main effect and all possible interaction
 
 train.all <- data.frame(matrix(ncol = ncol, nrow = 0))
-colnames(train.all) <- colnames(df.imp)[-c(1:2)]
+#colnames(train.all) <- colnames(df.imp)[-c(1:2)]
 
 test.all <- data.frame(matrix(ncol = ncol, nrow = 0))
-colnames(test.all) <- colnames(df.imp)[-c(1:2)]
+#colnames(test.all) <- colnames(df.imp)[-c(1:2)]
 
-coef.all <- matrix(ncol = 5, nrow = ncol) #5 imputation
+coef.all <- matrix(ncol = 5, nrow = 105) #5 imputation
+```
 
+```{r}
 for(m in 1:5){
   data.subset <- df.imp[df.imp$.imp == m,-c(1,2)]
   
-  #Var == 0 & BA == 0 
-  #Var == 0 & BA == 1 
-  #Var == 1 & BA == 0 
-  #Var == 1 & BA == 1 
-  trt1 <- data.subset[data.subset$Var == 0 & data.subset$BA == 0,]
-  trt2 <- data.subset[data.subset$Var == 0 & data.subset$BA == 1,]
-  trt3 <- data.subset[data.subset$Var == 1 & data.subset$BA == 0,]
-  trt4 <- data.subset[data.subset$Var == 1 & data.subset$BA == 1,]
+  trt1 <- data.subset[data.subset$group == 1,]
+  trt2 <- data.subset[data.subset$group == 2,]
+  trt3 <- data.subset[data.subset$group == 3,]
+  trt4 <- data.subset[data.subset$group == 4,]
   
   trt.list <- list(trt1, trt2, trt3, trt4)
   
@@ -533,10 +560,13 @@ for(m in 1:5){
   train.all <- rbind(train.all, train.final)
   test.all <- rbind(test.all, test.final)
   
-  x1 <- model.matrix(abst ~ ., data=train.final)[, -1]
+  x1 <- model.matrix(abst ~ ., data=train.final)[, -1]#exclude intercept
   y1 <- train.final$abst
+  
+  rownames(coef.all) <- c("Intercept",colnames(x1))
 
-  cvfit = L0Learn.cvfit(x1, y1, nFolds=5, seed=1, loss = "Logistic", penalty="L0L1", nGamma=5, gammaMin=0.0001, maxSuppSize=8)
+  cvfit = L0Learn.cvfit(x1, y1, nFolds=5, seed=1, loss = "Logistic", penalty="L0L1", 
+                        nGamma=5, gammaMin=0.0001, gammaMax=0.1, maxSuppSize=20)
   optimalGammaIndex = which.min(lapply(cvfit$cvMeans, min))
   optimalLambdaIndex = which.min(cvfit$cvMeans[[optimalGammaIndex]])
   optimalLambda = cvfit$fit$lambda[[optimalGammaIndex]][optimalLambdaIndex]
@@ -553,8 +583,6 @@ coef.avg <- rowMeans(coef.all, na.rm=T)
 #| fig-cap: Discrimination plot
 #| fig-height: 3
 
-#discrimination
-
 #training
 x.train <- model.matrix(abst ~ ., data=train.all)[, -1]
 y.train <- train.all$abst
@@ -566,7 +594,7 @@ pred1 <- predict(mod1, train.all, type = "response")#convert to probabilities
 roc1 <- roc(predictor = pred1, 
                response = as.factor(mod1$y), 
                levels = c(0,1), direction = "<")
-plot(roc1, col = "blue", print.auc = TRUE)#print.thres = TRUE
+plot(roc1, col = "blue", print.auc = TRUE, print.thres = TRUE)
 
 #testing
 x2 <- model.matrix(abst ~ ., data=test.all)[, -1]
@@ -580,15 +608,18 @@ roc2 <- roc(predictor = pred2,
                levels = c(0,1), direction = "<")
 plot(roc2, col = "green", print.auc = TRUE, print.auc.y = .4, add=TRUE)#print.thres = TRUE
 
-legend(1.7, 0.95, legend=c("Derivation data", "Validation data"),
-       col=c("blue", "green"),lty=1, cex=0.8)
+legend(1.5, 0.95, legend=c("Derivation data", "Validation data"),
+       col=c("blue", "green"),lty=1, cex=0.7)
 ```
 
-The ROC curves in Figure 6 did not approach the upper left corner, indicating no points with both high sensitivity and high specificity. With an area under the curve (AUC) of approximately 0.7, the model demonstrated limited predictive capability, suggesting it may not be highly effective. Surprisingly, the model fit the derivation data worse than the validation data, with a slightly lower AUC for the derivation data (0.740) compared to the validation data (0.753).
+The ROC curves in Figure 5 did not approach the upper left corner, indicating no points with both high sensitivity and high specificity. With an area under the curve (AUC) of approximately 0.7, the model demonstrated limited predictive capability, suggesting it may not be highly effective. Unsurprisingly, the model fit the derivation data better than the validation data, with a slightly higher AUC for the derivation data (0.764) compared to the validation data (0.712).
 
 ```{r}
 #| tbl-cap: Discrimination table
-pred_ys <- ifelse(pred1 > 0.157, 1, 0)
+
+#https://alicepaul.github.io/health-data-science-using-r/book/logistic_regression.html
+
+pred_ys <- ifelse(pred1 > 0.172, 1, 0)
 tab_outcome <- table(mod1$y, pred_ys)
 
 sens1 <- tab_outcome[2, 2]/(tab_outcome[2, 1]+tab_outcome[2, 2])
@@ -597,7 +628,7 @@ ppv1 <- tab_outcome[2, 2]/(tab_outcome[1, 2]+tab_outcome[2, 2])
 npv1 <- tab_outcome[1, 1]/(tab_outcome[1, 1]+tab_outcome[2, 1])
 acc1 <- (tab_outcome[1, 1]+tab_outcome[2, 2])/sum(tab_outcome)
 
-pred_ys <- ifelse(pred2 > 0.165, 1, 0)
+pred_ys <- ifelse(pred2 > 0.172, 1, 0)
 tab_outcome <- table(mod2$y, pred_ys)
 
 sens2 <- tab_outcome[2, 2]/(tab_outcome[2, 1]+tab_outcome[2, 2])
@@ -612,7 +643,7 @@ data.frame(Measures = c("Sens", "Spec", "PPV", "NPV", "Acc"),
   kable()
 ```
 
-Table 6 shows an accuracy of approximately 60% (61.6% for the derivation set and 60.3% for the validation set), indicating that the model correctly predicts outcomes 60% of the time, which is not particularly strong. For the derivation data, sensitivity is greater than specificity, suggesting that the model performs well in identifying individuals with smoking abstinence but has lower specificity, reflecting weaker performance in correctly predicting outcomes for those without smoking abstinence. The validation set shows a similar pattern, with sensitivity higher than specificity. The Positive Predictive Value (PPV) indicates that 34.1% of those with a positive test in the derivation set actually reach smoking abstinence, slightly lower than the 35.1% in the validation set. The Negative Predictive Value (NPV) shows that 95.2% of those with a negative test in the derivation set do not achieve smoking abstinence, which is slightly higher than the 93.2% observed in the validation set.
+Using 0.172 as the cut point for prediction, Table 5 showed an accuracy of approximately 71% for the derivation set and 62% for the validation set, indicating that the model correctly predicted outcomes in about 60 to 70% of cases, which was not particularly strong. In the derivation set, sensitivity was lower than specificity, suggesting that the model performed worse in identifying individuals achieving smoking abstinence but had better specificity, reflecting stronger performance in correctly predicting outcomes for those not achieving smoking abstinence. Conversely, the validation set exhibited the opposite pattern, with sensitivity slightly higher than specificity. The Positive Predictive Value (PPV) indicated that 38.5% of those with a positive test in the derivation set actually achieved smoking abstinence, slightly higher than the 33.8% observed in the validation set. The Negative Predictive Value (NPV) showed that 88.6% of those with a negative test in the derivation set did not achieve smoking abstinence, slightly higher than the 85% observed in the validation set.
 
 ```{r}
 #calibration plot1
@@ -636,10 +667,10 @@ p1<-ggplot(calib_data) +
   theme_minimal()+
   ggtitle("Derivation")
 ```
-\newpage
+
 ```{r}
 #| fig-cap: Calibration plot
-#| fig-height: 3
+#| fig-height: 2.5
 
 #calibration plot2
 num_cuts <- 10
@@ -663,54 +694,66 @@ p2<-ggplot(calib_data) +
   ggtitle("Validation")
 
 grid.arrange(p1, p2, nrow = 1)
+
+
+# summary(train.all$abst)/(950+250)
+# summary(test.all$abst)/(230+70)
 ```
 
-Figure 7 compares observed versus expected proportions, with the red line representing a perfect fit where the estimated and true distributions align. In the derivation set's calibration plot, the estimated and true distributions do not align well, as 6 out of 9 confidence intervals fail to capture the red line. The calibration in the validation set looks better, with most 95% confidence intervals capturing the red line. However, the validation plot's confidence intervals are much wider, indicating substantial uncertainty. Notably, a single dot appears in the upper right corner of both calibration plots, which may be due to the limited proportions of observations with smoking abstinence — only 21% in the derivation set and 23% in the validation set.
+Figure 6 displayed calibration plots comparing observed versus expected proportions, with the red line representing a perfect fit. In the derivation set's calibration plot, the estimated and true distributions showed poor alignment, with confidence intervals widening as the expected proportion increased. The calibration plot for the validation set demonstrated more narrower confidence intervals, they were reduced to just single points. Both plots showed concerning deviations from the red line for expected proportions greater than 0.5, which may have resulted from the limited proportion of observations achieving smoking abstinence—21% in the derivation set and 23% in the validation set.
 
 ```{r}
 #| tbl-cap: Coefficients of the Logistic Model
 
 #find out the selected model predictors
 nonzero.param.idx <- which(coef.avg != 0)[-1]
-# length(coef.avg)-1
-# length(colnames(df.imp)[-c(1:3)])
-all.param<-colnames(df.imp)[-c(1:3)]
-nonzero.param <- all.param[nonzero.param.idx]
 nonzero.param.value <- coef.avg[nonzero.param.idx]
 nonzero.param.value <- as.data.frame(nonzero.param.value)
-row.names(nonzero.param.value) <- c("Behavioral Activation", "Age * Education", 
-                                    "Age * Current vs past MDD", 
-                                    "BDI score * Readiness to quit smoking")
+row.names(nonzero.param.value) <- c("FTCD score", "Varenicline * Nicotine Metabolism Ratio", 
+                                    "Varenicline * Smoking with 5 mins of waking up", 
+                                    "Current vs past MDD * Behavioral Activation")
 
-#no transformation: "BA"  "age_ps:edu"  "age_ps:mde_curr"  "bdi_score_w00:readiness"
+#no transformation: ftcd_score   `Var1:NMR` `Var1:ftcd.5.mins1`  `mde_curr1:BA1` 
 kable(as.data.frame(nonzero.param.value), col.names = c("Coefficients"), 
       booktabs = TRUE, digits = 3)
 
-#variable transformation: "BA"   "Only.Menthol" "hedonsum_y_pq1:mde_curr"  "bdi_score_w00:readiness"
+#variable transformation: ftcd_score -0.05414289, Var1:NMR 4.24669083
 ```
 
 # Results
 
-Interestingly, the "best" model does not include `Varenicline` (which was considered important in the previous study) but instead includes `Behavioral Activation` (which was considered unimportant previously), `Age` and its interactions with both `Education` and `Current vs Past MDD`, along with the interaction between `BDI score` and `Readiness to Quit Smoking`. This model is relatively simple, likely due to the effects of L1 (lasso) regularization, which penalizes the absolute sum of the coefficients, reducing complexity by setting less influential variable coefficients to zero. Additionally, incorporating L0 regularization, which minimizes the count of non-zero coefficients, further helps prevent overfitting by selecting an optimal subset of features.
+The model included `Fagerstrom Test for Nicotine Dependence (FTCD) score`, the interactions between `varenicline` with both `nicotine metabolism ratio` and `smoking with 5 mins of waking up`, along with the interaction between `current vs past MDD` and `behavioral activation`. This model was relatively simple, likely due to the effects of L1 (lasso) regularization, which penalized the absolute sum of the coefficients, reducing complexity by setting less influential variable coefficients to zero. Additionally, incorporating L0 regularization, which minimized the count of non-zero coefficients, further prevented overfitting by selecting an optimal subset of features.
 
-The interpretation of the coefficients is as follows: For a participant who received `Behavioral Activation`, the odds of achieving `Smoking Abstinence` are $e^{1.384} = 3.99$ times higher than for a participant who received `Standard Behavioral Treatment`, holding all other variables constant. A positive coefficient of 0.066 indicates a slight positive interaction effect between `Age` and `Education` on `Smoking Abstinence`, meaning that the combined effect of `Age` and `Education` marginally increases the odds of `Smoking Abstinence`.The effect size ($e^{0.066} = 1.07$) is relatively modest.
+The interpretation of the coefficients was as follows: For each additional point earned in `FTCD score`, we expected the odds of achieving `smoking abstinence` decreased multiplicately by $e^{-0.118} = 0.89$, holding all other variables constant. This finding aligned with expectations, as individuals with higher nicotine dependence typically faced greater challenges in quitting smoking. A positive coefficient of 2.720 indicated a strong positive interaction effect between `varenicline` and `nicotine metabolism ratio` on `smoking abstinence`. Specifically, as `nicotine metabolism ratio` increased, individuals who took `varenicline` have approximately 15.18 times ($e^{2.72} = 15.18$) higher odds of achieving `smoking abstinence` compared to those who used `placebo`. Similarly, the positive coefficient of 0.208 suggested an interaction between `varenicline` and `smoking with 5 mins of waking up` on `smoking abstinence`. This indicated that the combined effect of using `varenicline` and smoking shortly after waking slightly increased the odds of achieving `smoking abstinence`. While the effect size was modest,, it underscored a potential benefit of `varenicline` for individuals with strong nicotine dependence habits. A negative coefficient of -0.21 indicated an interaction effect between the `current vs past MDD` and `behavioral activation` on the likelihood of `smoking abstinence`. This suggested that individuals with `current MDD` who received `behavioral activation` had slightly lower odds of achieving smoking abstinence compared to those with `past only MDD` who received the same intervention. This finding implied that `behavioral activation` was less effective for individuals with ongoing depressive symptoms.
 
-Similarly, the positive coefficient of 0.253 suggests an interaction between `Age` and `Having Current vs. Past Major Depressive Disorder (MDD)` that affects `Smoking Abstinence`. This implies that as `Age` increases, individuals with `current MDD` have approximately 1.29 times ($e^{0.253} = 1.29$) higher odds of achieving `Smoking Abstinence` than those with `past MDD`. A negative coefficient of -0.024 indicates an interaction effect between the `BDI score` (a measure of depression severity) and `Readiness to Quit Smoking` on `Smoking Abstinence` likelihood. This suggests that for individuals with higher `BDI scores`, even with `readiness to quit`, their likelihood of achieving `Smoking Abstinence` might be slightly lower. Although this effect size is small ($e^{-0.024} = 0.98$), it highlights a potential challenge for individuals with more severe depression symptoms.
-
-I also explored various transformations — squared, square root, and log — for quantitative variables including `Age`, `BDI score`, `Cigarettes per day`, `Pleasurable Events Scale` (both substitute and complementary reinforcers), `Anhedonia`, and `Nicotine Metabolism Ratio`, focusing on those with non-normal histogram distributions. The selected model was updated to include `Behavioral Activation`, `Exclusive Mentholated Cigarette User`, an interaction between `Pleasurable Events Scale (complementary reinforcers)` and `Current vs. Past MDD`, and an interaction between `BDI score` and `Readiness to Quit Smoking`. Despite these adjustments, the coefficients remained small, the AUC increased only slightly to 0.76, 95% confidence intervals in the calibration plot moved a little closer toward the red line, indicating minimal improvement. Since `Behavioral Activation`, `Current vs. Past MDD`, and the interaction between `BDI score` and `Readiness to Quit Smoking` were selected in both models (with or without variable transformation), they appear to be essential predictors of the outcome, `Smoking Abstinence`. 
+I also explored various transformations --- squared, square root, and log --- for quantitative variables including `age`, `BDI score`, `cigarettes per day`, `pleasurable Events Scale` (both substitute and complementary reinforcers), `anhedonia`, and `nicotine metabolism ratio`, focusing on those with non-normal histogram distributions. The selected model was updated to include `Fagerstrom Test for Nicotine Dependence (FTCD) score` and an interaction between `varenicline` and `nicotine metabolism ratio`. The coefficients remained small, but the AUC decreased slightly (0.756 for derivation set and 0.658 for validation set). Since `Fagerstrom Test for Nicotine Dependence (FTCD) score`, and the interaction between `varenicline` and `nicotine metabolism ratio` were selected in both models (with or without variable transformation), they appeared to be essential predictors of the outcome, `smoking abstinence`.
 
 ```{r}
 #| tbl-cap: Pearson Residuals Summary Table
 
-#model assumption check
-#deviance, perason residuals to find outliers
+#model assumption check:deviance, perason residuals to find outliers
+
+if (is.factor(train.all$abst)) {
+  train.all$abst <- as.numeric(as.character(train.all$abst))
+}
+
+if (!is.numeric(x.train)) {
+  x.train <- as.matrix(as.numeric(x.train))
+}
 
 train.all$logit<-coef.avg[1] + x.train %*% coef.avg[-1]
 train.all$p_hat <- 1 / (1 + exp(-train.all$logit))
 
-# Calculate deviance residuals
+# calculate deviance residuals
 train.all$deviance_residuals <- with(train.all, 
   sign(abst - p_hat) * sqrt(2 * ((abst * log(abst / p_hat)) + ((1 - abst) * log((1 - abst) / (1 - p_hat)))))
+)
+
+train.all$deviance_residuals <- with(train.all, 
+  sign(abst - p_hat) * sqrt(2 * (
+    (abst * ifelse(abst == 0, 0, log(abst / p_hat))) + 
+    ((1 - abst) * ifelse((1 - abst) == 0, 0, log((1 - abst) / (1 - p_hat))))
+  ))
 )
 
 # log(0) is undefined (set 0*log(0) to 0)
@@ -719,7 +762,7 @@ train.all$deviance_residuals[is.na(train.all$deviance_residuals)] <- 0
 train.all$pearson_residuals <- with(train.all, (abst - p_hat) / sqrt(p_hat * (1 - p_hat)))
 
 
-#pearson_residuals table
+#pearson residuals table
 summary_table <- train.all %>%
   mutate(`Smoking Abstinence` = case_when(
       abst == 1 ~ "Abstinent Group",
@@ -734,46 +777,15 @@ kable(summary_table, format = "latex", booktabs = TRUE, digits = 2)%>%
   kable_styling(latex_options = "hold_position")
 ```
 
-Since the absolute value of the mean of pearson residuals is less than 2 for both outcome groups, the model appears to fit well. Comparing the means, the model seems to overestimate the probability of smoking abstinence for non-abstinent individuals (indicated by a negative mean) and underestimate the likelihood of abstinence for abstinent individuals (positive mean).
-
-```{r}
-#| eval: false
-
-#plots
-ggplot(train.all, aes(x = p_hat, y = deviance_residuals)) +
-  geom_point() +
-  geom_hline(yintercept = 0, color = "red", linetype = "dashed") +
-  labs(x = "Fitted values (Predicted Probability)", y = "Deviance Residuals", title = "Deviance Residuals vs Fitted Values")
-
-ggplot(train.all, aes(x = p_hat, y = pearson_residuals)) +
-  geom_point() +
-  geom_hline(yintercept = 0, color = "red", linetype = "dashed") +
-  labs(x = "Fitted values (Predicted Probability)", y = "Pearson Residuals", title = "Pearson Residuals vs Fitted Values")
-
-# Loop through each predictor variable and plot deviance residuals
-for (var in numeric_vars) {
-  p <- ggplot(train.all, aes_string(x = var, y = "deviance_residuals")) +
-    geom_point() +
-    geom_hline(yintercept = 0, color = "red", linetype = "dashed") +
-    labs(x = paste("Predictor", var),
-         y = "Deviance Residuals",
-         title = paste("Deviance Residuals vs Predictor", var))
-  
-  print(p)  # Print each plot to the graphics device
-}
-
-# Q-Q plot for deviance residuals
-qqnorm(train.all$deviance_residuals, main = "Q-Q Plot of Deviance Residuals")
-qqline(train.all$deviance_residuals, col = "red")
-
-# Repeat similarly for Pearson residuals
-qqnorm(train.all$pearson_residuals, main = "Q-Q Plot of Pearson Residuals")
-qqline(train.all$pearson_residuals, col = "blue")
-```
+Since the absolute values of the mean Pearson residuals were less than 2 for both outcome groups, the model appeared to fit well. A comparison of the means suggested that the model overestimated the probability of smoking abstinence for non-abstinent individuals, as indicated by a negative mean, and underestimated the likelihood of smoking abstinence for abstinent individuals, as reflected by a positive mean.
 
 # Discussion
 
-This study focuses on individuals with mental health disorders, specifically MDD, and examines the effectiveness of different treatments, psychological and demographic factors that influence smoking cessation. The model, constructed using L1 and L0 regularization techniques, is simplified by reducing complexity and selecting only the most predictive features. Key predictors and interaction effects influencing smoking abstinence are identified. However, certain limitations should be noted: the model’s simplicity may exclude complex relationships, and missing data could introduce potential bias. Despite these limitations, the findings of this study highlight the value of `Behavioral Activation` and the intricate role of psychological factors such as `Current vs. Past MDD`, `BDI score`, and `Readiness to Quit Smoking` in influencing smoking cessation outcomes. This information is vital for future research and policy decisions in the field of mental health and smoking cessation.
+This project focused on individuals with mental health disorders, specifically major depressive disorder (MDD), and examined the effectiveness of various treatments as well as the psychological and demographic factors influencing smoking cessation. The model, developed using L1 and L0 regularization techniques, was simplified to reduce complexity and prioritize the most predictive features. Key predictors and interaction effects impacting smoking abstinence were identified. However, certain limitations should be acknowledged. The model's simplicity may have excluded complex relationships, and missing data could have introduced potential bias. Despite these challenges, the findings highlighted the importance of pharmacotherapy with `varenicline`, the `Fagerstrom Test for Nicotine Dependence (FTCD) score`, and the `nicotine metabolism ratio` in influencing smoking cessation outcomes. Additional variables such as `smoking within 5 minutes of waking up`, `current vs past MDD`, and `behavioral activation` were also selected as significant predictors. Interestingly, the "best" model included `varenicline`, which was highlighted as important in previous research, and `behavioral activation`, which was previously considered less significant. These insights could provide valuable directions for future research and policy decisions in the intersection of mental health and smoking cessation.
+
+# References
+
+[1] B. Hitsman et al., “Efficacy and Safety of Combination Behavioral Activation for Smoking Cessation and Varenicline for Treating Tobacco Dependence among Individuals with Current or Past Major Depressive Disorder: A 2x2 Factorial, Randomized, Placebo‐Controlled Trial,” May 2023, doi: https://doi.org/10.1111/add.16209.
 
 \newpage
 
