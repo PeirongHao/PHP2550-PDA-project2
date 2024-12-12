@@ -1,5 +1,5 @@
 ---
-title: "PHP 2550 Project 2: Predictors and Treatment Effects of Smoking Abstinence in Adults with Major Depressive Disorder"
+title: "PHP 2550 Project 2"
 author: "Peirong Hao"
 format: pdf
 include-in-header: 
