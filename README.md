@@ -23,7 +23,8 @@ These findings emphasize the effectiveness of pharmacotherapy with varenicline f
 
 ## Files
 project2.qmd: This file includes R code and text explanations for both the Exploratory Data Analysis and Statistical Analysis.
-project2.pdf: A PDF version of the report, including a Code Appendix at the end.
+
+project2.pdf: A PDF version of the report, including the Code Appendix at the end.
 
 ## Dependencies
 I used the following packages for this analysis: tidyverse, knitr, tidyr, dplyr, kableExtra, readr, visdat, gridExtra, corrplot, fields, glue, mice, gtsummary, naniar, gt, L0Learn, and pROC.
