@@ -22,9 +22,9 @@ To identify key predictors and control for overfitting, L0 and L1 regularization
 These findings emphasize the effectiveness of pharmacotherapy with varenicline for smoking cessation in individuals with MDD and highlight the role of individual characteristics, such as nicotine metabolism and depressive status, in influencing treatment outcomes. While the predictive model performed moderately well, its results suggest that additional factors may contribute to smoking cessation success in this population. Future research could focus on identifying these factors and exploring further interaction effects to refine personalized smoking cessation strategies.
 
 ## Files
-project2.qmd: This file includes R code and text explanations for both the Exploratory Data Analysis and Statistical Analysis.
+`project2.qmd`: This file includes R code and text explanations for both the Exploratory Data Analysis and Statistical Analysis.
 
-project2.pdf: A PDF version of the report, including the Code Appendix at the end.
+`project2.pdf`: A PDF version of the report, including the Code Appendix at the end.
 
 ## Dependencies
 I used the following packages for this analysis: tidyverse, knitr, tidyr, dplyr, kableExtra, readr, visdat, gridExtra, corrplot, fields, glue, mice, gtsummary, naniar, gt, L0Learn, and pROC.
