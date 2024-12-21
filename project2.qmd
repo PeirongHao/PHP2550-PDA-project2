@@ -155,7 +155,7 @@ tbl.summary<-df.proj2.revise %>%
 tbl.summary
 ```
 
-There were 300 observations with unique IDs (no duplicated observations) and 24 variables. Except for one variable serving as the ID, the others were variables of interest, including the outcome, treatments, and baseline covariates. Among all baseline characteristics, only `Antidepressant medication` had a p-value \< $\alpha$ = 0.05, indicating it was statistically significantly different across the four treatment groups (see Table 1).
+There were 300 observations with unique IDs (no duplicated observations) and 24 variables. Except for one variable serving as the ID, the others were variables of interest, including the outcome, treatments, and baseline covariates. Among all baseline characteristics, only `antidepressant medication` had a p-value \< $\alpha$ = 0.05, indicating it was statistically significantly different across the four treatment groups (see Table 1).
 
 ```{r}
 #modify race variable
@@ -479,7 +479,7 @@ df.proj2.revise %>%
 
 As discussed previously, the missingness in this case was likely Missing at Random (MAR). Since the [mice (Multivariate Imputation by Chained Equations)](https://www.rdocumentation.org/packages/mice/versions/3.17.0/topics/mice) package was designed for MAR data --- imputing missing values based on observed data in other variables --- I used `mice` to impute five datasets before splitting them into testing and training sets. Given the limited amount of available data, I performed multiple imputation prior to splitting the dataset, which could have resulted in data leakage. For each imputed dataset, there were four treatment groups, and within each treatment group, I applied an 80%-20% train-test split. In other words, for each imputed dataset, I obtained a final training and testing set by combining the training and testing subsets from each treatment group.
 
-In addition to main effects, I included several interaction terms for modeling. One interaction was between `varenicline` and `behavioral activation`, while the others were all possible interactions between a quantitative predictor and a categorical predictor (except the outcome and two treatment variables). I selected the L0+L1 regularization model from the [L0Learn](https://cran.r-project.org/web/packages/L0Learn/vignettes/L0Learn-vignette.html) library and used 5-fold cross-validation to identify the optimal gamma and lambda values. Each imputed dataset produced one set of estimated coefficients, and the final pooled estimates were obtained by averaging the results across the five imputed datasets.
+In addition to main effects, I included several interaction terms for modeling. In addition to main effects, I included interaction terms in the model, such as the interaction between `varenicline` and `behavioral activation`, as well as all possible interactions between baseline predictors and treatment variables. I selected the L0+L1 regularization model from the [L0Learn](https://cran.r-project.org/web/packages/L0Learn/vignettes/L0Learn-vignette.html) library and used 5-fold cross-validation to identify the optimal gamma and lambda values. Each imputed dataset produced one set of estimated coefficients, and the final pooled estimates were obtained by averaging the results across the five imputed datasets.
 
 ```{r}
 # possible variable transformation to normzalize quantitative variables
