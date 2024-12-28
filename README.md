@@ -1,4 +1,4 @@
-# PHP 2550 PDA Project2: Smoking Cessation Study in MDD Patients
+# PHP 2550 PDA Project2: Smoking Cessation Study
 
 ## Summary
 This project investigated the effectiveness of combined pharmacotherapy and psychotherapy interventions for smoking cessation among adults with Major Depressive Disorder (MDD). Data were analyzed from a 2×2 factorial randomized clinical trial involving 300 participants who received either varenicline or placebo in combination with either behavioral activation for smoking cessation (BASC) or standard behavioral treatment (ST). 
